@@ -1,0 +1,14 @@
+.build/
+.swiftpm/
+DerivedData/
+*.xcodeproj/xcuserdata/
+*.xcworkspace/xcuserdata/
+.DS_Store
+
+# Local configuration and test artifacts
+.env
+.env.*
+!.env.example
+*.log
+coverage/
+
