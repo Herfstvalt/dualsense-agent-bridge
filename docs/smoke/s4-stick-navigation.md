@@ -130,7 +130,7 @@ With focus in a long terminal buffer or a web page:
 
 | Section | Status | Notes |
 | --- | --- | --- |
-| 0. Baseline without hardware | pass | `swift test` (202 tests, 17 suites) and a clean release build pass with no warnings; `doctor`, `profile --starter`, and a version 1 profile without a `navigation` section were all verified. |
+| 0. Baseline without hardware | pass | `swift test` (209 tests, 17 suites) and a clean release build pass with no warnings; `doctor`, `profile --starter`, and a version 1 profile without a `navigation` section were all verified. |
 | 1. Stick recognition | pending | Needs the paired DualSense in a GUI session. |
 | 2. Pointer direction and feel | pending | Subjective; the shipped defaults are a starting point, not a verdict. |
 | 3. Scroll direction and feel | pending | Horizontal wheel polarity in particular needs a real check; `scroll.invertX` exists for exactly that. |

@@ -25,7 +25,12 @@ public enum NavigationSettingsError: Error, Hashable, Sendable, CustomStringConv
 
     private static func describe(_ value: Double) -> String {
         guard value.isFinite else { return "not a finite number" }
-        return value == value.rounded() ? String(Int(value)) : String(value)
+        // `Int(_:)` traps on a Double outside Int's range, and a profile is a
+        // hand-edited file that may contain any number at all — including one
+        // large enough to crash the very code trying to explain why it is wrong.
+        // The integer spelling is therefore only used where it is provably safe.
+        guard value == value.rounded(), value.magnitude < 1e15 else { return String(value) }
+        return String(Int(value))
     }
 }
 

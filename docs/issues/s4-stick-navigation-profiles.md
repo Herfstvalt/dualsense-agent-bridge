@@ -28,7 +28,7 @@ validated on a real DualSense.
 
 - PR:
 - Merge commit:
-- Tests: `swift test` — 202 tests in 17 suites, plus a clean release build with no
+- Tests: `swift test` — 209 tests in 17 suites, plus a clean release build with no
   warnings. New coverage: normalized stick axes, deadzone, clamp, response curve,
   continuous motion from a held stick, release, per-controller and global clear,
   disconnect, shutdown, coexistence with button actions, sub-pixel quantization,

@@ -31,15 +31,24 @@ public enum NavigationOutcome: Hashable, Sendable, CustomStringConvertible {
 ///
 /// Two concerns live here and nowhere else:
 ///
-/// - **Quantization.** A tick at 120 Hz asks for a fraction of a pixel. Rounding
-///   each tick independently would either throw slow motion away or overshoot,
-///   so the remainder is carried forward and only whole units are emitted.
+/// - **Quantization.** At the default tick rate a single tick asks for a fraction
+///   of a pixel. Rounding each tick independently would either throw slow motion
+///   away or overshoot, so the remainder is carried forward and only whole units
+///   are emitted.
 /// - **Permission.** Synthetic pointer events need the same Accessibility grant
 ///   as synthetic keys, re-read per output because it can be granted or revoked
 ///   while the bridge runs. A refusal also drops the remainder, so motion cannot
 ///   bank up while permission is missing and then jump when it arrives.
 public final class SyntheticPointer {
     static let sinkFailureReason = "the pointer sink rejected a synthetic event"
+
+    /// The most one output may contribute along one axis, in whole units.
+    ///
+    /// Far larger than any display, and small enough that converting the result to
+    /// `Int` can never trap. `perform` is public and the engine's settings are not
+    /// guaranteed to have been validated, so an absurd or non-finite delta has to
+    /// be a bounded no-op rather than a crash on the cursor's own code path.
+    static let maximumUnitsPerOutput = 100_000.0
 
     /// Carried-over fractions for one kind of output.
     private struct Remainder {
@@ -51,8 +60,8 @@ public final class SyntheticPointer {
         /// Truncation is towards zero so the cursor never travels further than
         /// asked; the leftover stays behind for the next tick.
         mutating func take(dx: Double, dy: Double) -> (dx: Int, dy: Int) {
-            x += dx
-            y += dy
+            x += SyntheticPointer.bounded(dx)
+            y += SyntheticPointer.bounded(dy)
             let wholeX = x < 0 ? x.rounded(.up) : x.rounded(.down)
             let wholeY = y < 0 ? y.rounded(.up) : y.rounded(.down)
             x -= wholeX
@@ -63,6 +72,16 @@ public final class SyntheticPointer {
         mutating func reset() {
             self = Remainder()
         }
+    }
+
+    /// A finite delta inside the range this type promises to handle.
+    ///
+    /// A non-finite delta becomes zero: NaN cannot be clamped into a useful
+    /// number, and moving the cursor to an unrecoverable position is worse than
+    /// not moving it at all.
+    static func bounded(_ delta: Double) -> Double {
+        guard delta.isFinite else { return 0 }
+        return min(max(delta, -maximumUnitsPerOutput), maximumUnitsPerOutput)
     }
 
     private let sink: any PointerSink

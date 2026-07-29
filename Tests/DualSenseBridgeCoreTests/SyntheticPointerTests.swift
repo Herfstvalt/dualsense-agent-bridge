@@ -143,6 +143,44 @@ struct SyntheticPointerTests {
         #expect(sink.attempts == 1)
     }
 
+    @Test("an absurd delta is bounded instead of trapping on conversion")
+    func absurdDeltasAreBounded() {
+        let (pointer, sink) = makePointer()
+
+        // Regression: converting a delta this large to Int used to trap, on the
+        // one code path that must never crash while a stick is held.
+        let outcome = pointer.perform(.moveCursor(dx: 1e300, dy: -1e300))
+
+        #expect(
+            outcome
+                == .emitted(
+                    dx: Int(SyntheticPointer.maximumUnitsPerOutput),
+                    dy: -Int(SyntheticPointer.maximumUnitsPerOutput)
+                )
+        )
+        #expect(sink.emissions.count == 1)
+    }
+
+    @Test("a non-finite delta moves nothing at all")
+    func nonFiniteDeltasAreIgnored() {
+        let (pointer, sink) = makePointer()
+
+        #expect(pointer.perform(.moveCursor(dx: .nan, dy: .infinity)) == .accumulated)
+        #expect(pointer.perform(.scroll(dx: -.infinity, dy: .nan)) == .accumulated)
+        #expect(sink.emissions.isEmpty)
+    }
+
+    @Test("a non-finite delta cannot poison the carried-over remainder")
+    func nonFiniteDeltasLeaveTheRemainderUsable() {
+        let (pointer, sink) = makePointer()
+
+        pointer.perform(.moveCursor(dx: .nan, dy: .nan))
+        pointer.perform(.moveCursor(dx: 0.6, dy: 0))
+        pointer.perform(.moveCursor(dx: 0.6, dy: 0))
+
+        #expect(sink.emissions == [.move(dx: 1, dy: 0)])
+    }
+
     @Test("outcomes describe themselves for diagnostics")
     func outcomeDescriptions() {
         #expect(NavigationOutcome.emitted(dx: 3, dy: -2).description == "emitted dx=3 dy=-2")
