@@ -37,9 +37,10 @@ input, which is the failure mode already recorded for S1.
 - [ ] An existing S1 profile (no `navigation` key, `"schemaVersion": 1`) still
       loads: `dualsense-bridge doctor --profile <old file>` reports it and shows
       the default navigation values.
-- [ ] `dualsense-bridge profile --starter` shows `r3` on `control+s`, the three
-      `tapSequence` bindings for `r1`/`l1`/`l3`, `touchpadButton` on
-      `control+grave`, and no `r2` binding.
+- [ ] `dualsense-bridge profile --starter` shows `r3` on `control+s`, Square on
+      Backspace, Triangle on `option+command+f5`, the three `tapSequence`
+      bindings for `r1`/`l1`/`l3`, `touchpadButton` on `control+grave`, and no
+      keyboard binding for R2 or L2.
 - [ ] Feeding that same output back in with `--profile` loads cleanly, which is
       what proves the sequence and arrow-key spellings can be read back.
 
@@ -55,8 +56,13 @@ Start `dualsense-bridge run --dry-run` and keep its terminal **not** frontmost.
       further lines appear while the sticks are at rest.
 - [ ] Confirm the output is *summaries*, not one line per tick: a one-second push
       should produce a small number of lines, not a hundred.
-- [ ] Press Cross and L2 while a stick is held. Button lines appear interleaved
+- [ ] Press Cross and R3 while a stick is held. Button lines appear interleaved
       with motion summaries; neither starves the other.
+- [ ] Move one finger across the touchpad. `touchpad primary began` is followed
+      by periodic `mouse` summaries, and `touchpad primary ended` appears on
+      lift. Landing the finger near an edge does not emit a large jump.
+- [ ] Move two fingers together. Output switches to `scroll` summaries and does
+      not also emit cursor movement.
 
 ## 2. Pointer direction and feel
 
@@ -93,10 +99,10 @@ With focus in a long terminal buffer or a web page:
 - [ ] Scrolling a terminal does **not** insert or delete any text. Check the
       prompt is byte-for-byte unchanged afterwards.
 
-## 4. Coexistence with the S1 bindings
+## 4. Coexistence with keyboard bindings
 
-- [ ] Hold L2 to dictate while moving the right stick. Dictation continues and
-      the cursor moves; releasing L2 inserts the transcript as usual.
+- [ ] Click R3 to start Wispr Flow, move the right stick or one touchpad finger,
+      and click R3 again. Dictation stays active while the pointer moves.
 - [ ] Press Cross while a stick is held. Return is delivered once and motion is
       unaffected.
 - [ ] Click the right stick (R3) while pushing it. Ctrl-S is delivered and the
@@ -108,27 +114,31 @@ With focus in a long terminal buffer or a web page:
 - [ ] Press D-pad Up and Down at a shell prompt. History moves one entry per
       press.
 - [ ] Press the touchpad button. Control-backtick reaches the focused app.
-- [ ] Left and middle click are still unbound, so nothing in this bridge can
-      left-click or left-drag.
+- [ ] Press Square in a scratch prompt. It removes exactly one character as
+      Backspace.
+- [ ] Press Triangle. macOS Accessibility Shortcuts opens; from there the
+      Accessibility Keyboard can be enabled. Close the panel without changing
+      unrelated accessibility settings.
 
-## 4b. Right button hold and drag (R2)
+## 4b. Mouse button holds and drags (R2/L2)
 
-- [ ] Pull R2 with the pointer over a Finder window or web page. A context menu
+- [ ] Pull R2 over a Finder item and release without moving. It behaves like a
+      normal left click.
+- [ ] Hold R2 and push the right stick. `run --dry-run` reports `left button
+      down`, then `left drag dx=… dy=…` summaries instead of `mouse dx=… dy=…`,
+      then `left button up`. In a text view this can select text.
+- [ ] Pull L2 with the pointer over a Finder window or web page. A context menu
       opens on release, exactly as a real right click would.
-- [ ] Hold R2 and push the right stick. `run --dry-run` reports `right button
-      down`, then `drag dx=… dy=…` summaries instead of `mouse dx=… dy=…`, then
-      `right button up`. Button lines are not throttled.
-- [ ] Release R2 without moving. The button lifts and the next stick push reports
+- [ ] Hold L2 and move the right stick. Dry-run reports `right button down`,
+      `drag dx=… dy=…`, and `right button up`.
+- [ ] Release either trigger without moving. The button lifts and the next stick push reports
       `mouse`, not `drag`, again.
-- [ ] Hold R2, push the stick, let the stick return to centre, then push again
-      while still holding R2. The button stays down across the pause.
-- [ ] Press R2 twice without releasing, then release twice. Only one `right
-      button down` and one `right button up` appear.
-- [ ] Confirm this is a *right*-button drag only: it drives context menus and any
-      right-drag gesture the focused app implements. It is not text selection,
-      which macOS does with a left-button drag.
-- [ ] Confirm no key output accompanies R2. `run --dry-run` shows no
-      `unmapped(r2)` line and no keystroke.
+- [ ] Hold either trigger, push the stick, let the stick return to centre, then
+      push again while still holding it. The button stays down across the pause.
+- [ ] Press either trigger twice without releasing, then release twice. Only one
+      matching button-down and one button-up appear.
+- [ ] Confirm no key output accompanies either trigger. Dry-run shows no
+      `unmapped(r2)`/`unmapped(l2)` line and no keystroke.
 
 ## 5. Interruption and cleanup
 
@@ -146,16 +156,16 @@ With focus in a long terminal buffer or a web page:
 - [ ] Suspend the bridge (`Control-Z`, wait ten seconds, `fg`) while a stick is
       held. On resume the cursor moves at most a small jump, not across the whole
       screen; this is the stall clamp doing its job.
-- [ ] While holding R2, turn the controller off. The right button comes back up:
+- [ ] While holding R2 or L2, turn the controller off. The mouse button comes up:
       confirm a subsequent physical left click behaves normally and no context
       menu is stuck open.
-- [ ] While holding R2, press Control-C in the bridge terminal. The button is
-      released on the way out.
-- [ ] While holding R2, revoke Accessibility permission, then stop the bridge.
-      The button is still released — cleanup deliberately bypasses the permission
-      check so a revoked permission cannot latch it.
-- [ ] While holding R2, `kill` the bridge process. Confirm the button does not
-      stay down.
+- [ ] While holding either trigger, press Control-C in the bridge terminal. The
+      button is released on the way out.
+- [ ] While holding either trigger, revoke Accessibility permission, then stop
+      the bridge. The button is still released — cleanup deliberately bypasses
+      the permission check so a revoked permission cannot latch it.
+- [ ] While holding either trigger, `kill` the bridge process. Confirm the button
+      does not stay down.
 
 ## 6. Configuration
 
@@ -171,11 +181,11 @@ With focus in a long terminal buffer or a web page:
 
 | Section | Status | Notes |
 | --- | --- | --- |
-| 0. Baseline without hardware | pass | Clean-scratch `swift test` (262 tests, 20 suites) and a clean-scratch release build pass with no warnings; `doctor`, `profile --starter`, and a version 1 profile without a `navigation` section were all verified. |
-| 1. Stick recognition | pending | Needs the paired DualSense in a GUI session. |
+| 0. Baseline without hardware | pass | `swift test` (275 tests, 22 suites) and a release build pass with no warnings; `doctor`, `profile --starter`, and a version 1 profile without a `navigation` section were all verified. |
+| 1. Stick/touchpad recognition | pending | Needs the paired DualSense in a GUI session. |
 | 2. Pointer direction and feel | pending | Subjective; the shipped defaults are a starting point, not a verdict. |
 | 3. Scroll direction and feel | pending | Horizontal wheel polarity in particular needs a real check; `scroll.invertX` exists for exactly that. |
-| 4. Coexistence with the S1 bindings | pending | Automated coverage exists for stick-and-button coexistence; the live Wispr path does not. |
+| 4. Coexistence with keyboard bindings | pending | Automated coverage exists for stick/touchpad-and-button coexistence; the live Wispr path does not. |
 | 5. Interruption and cleanup | pending | Automated coverage exists for held-key and held-button release, disconnect, reconnect, profile replacement, shutdown, deinit, and permission-refusal paths. |
 | 6. Configuration | pending | Profile decoding and validation are covered by automated tests; the live feel of a changed value is not. |
 

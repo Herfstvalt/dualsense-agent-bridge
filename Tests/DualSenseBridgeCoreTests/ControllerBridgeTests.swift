@@ -6,9 +6,14 @@ import Testing
 struct ControllerBridgeTests {
     private let wisprDown: [KeyEmission] = [.down(.control), .down(.option), .down(.space)]
     private let wisprUp: [KeyEmission] = [.up(.space), .up(.option), .up(.control)]
+    private static let wisprTestProfile: ControllerProfile = {
+        var bindings = ControllerProfile.starterTerminal.bindings
+        bindings[.micButton] = .hold(KeyStroke(key: .space, modifiers: [.control, .option]))
+        return ControllerProfile(name: "starter-terminal", bindings: bindings)
+    }()
 
     private func makeBridge(
-        profile: ControllerProfile = .starterTerminal,
+        profile: ControllerProfile = Self.wisprTestProfile,
         status: AccessibilityStatus = .granted
     ) -> (ControllerBridge, RecordingKeyboardSink) {
         let sink = RecordingKeyboardSink()
@@ -25,10 +30,10 @@ struct ControllerBridgeTests {
         let (bridge, sink) = makeBridge()
 
         bridge.handle(.connected(input.controller))
-        bridge.handle(input.press(.l2))
+        bridge.handle(input.press(.micButton))
         #expect(sink.emissions == wisprDown)
 
-        bridge.handle(input.release(.l2))
+        bridge.handle(input.release(.micButton))
         bridge.handle(input.press(.cross))
         bridge.handle(input.release(.cross))
 
@@ -74,7 +79,7 @@ struct ControllerBridgeTests {
         let (bridge, sink) = makeBridge()
 
         bridge.handle(.connected(input.controller))
-        bridge.handle(input.press(.l2))
+        bridge.handle(input.press(.micButton))
         sink.reset()
 
         bridge.handle(.disconnected(input.controller))
@@ -89,7 +94,7 @@ struct ControllerBridgeTests {
         var input = FakeControllerInput()
         let (bridge, sink) = makeBridge()
 
-        bridge.handle(input.press(.l2))
+        bridge.handle(input.press(.micButton))
         sink.reset()
 
         bridge.shutdown()
@@ -103,7 +108,7 @@ struct ControllerBridgeTests {
         var input = FakeControllerInput()
         let (bridge, sink) = makeBridge()
 
-        bridge.handle(input.press(.l2))
+        bridge.handle(input.press(.micButton))
         bridge.shutdown()
         sink.reset()
         bridge.shutdown()
@@ -119,7 +124,7 @@ struct ControllerBridgeTests {
 
         bridge.shutdown()
         sink.reset()
-        bridge.handle(input.press(.l2))
+        bridge.handle(input.press(.micButton))
         bridge.handle(input.press(.cross))
 
         #expect(sink.emissions.isEmpty)
@@ -131,11 +136,11 @@ struct ControllerBridgeTests {
         var input = FakeControllerInput()
         let (bridge, sink) = makeBridge()
 
-        bridge.handle(input.release(.l2))
-        bridge.handle(input.press(.l2))
-        bridge.handle(input.press(.l2))
-        bridge.handle(input.release(.l2))
-        bridge.handle(input.release(.l2))
+        bridge.handle(input.release(.micButton))
+        bridge.handle(input.press(.micButton))
+        bridge.handle(input.press(.micButton))
+        bridge.handle(input.release(.micButton))
+        bridge.handle(input.release(.micButton))
 
         #expect(sink.emissions == wisprDown + wisprUp)
         #expect(bridge.heldKeys.isEmpty)
@@ -151,8 +156,8 @@ struct ControllerBridgeTests {
         bridge.handle(.connected(second.controller))
         #expect(bridge.connectedControllers.count == 2)
 
-        bridge.handle(first.press(.l2))
-        bridge.handle(second.press(.l2))
+        bridge.handle(first.press(.micButton))
+        bridge.handle(second.press(.micButton))
         sink.reset()
 
         bridge.handle(.disconnected(second.controller))
@@ -169,8 +174,8 @@ struct ControllerBridgeTests {
 
         bridge.handle(.connected(first.controller))
         bridge.handle(.connected(second.controller))
-        bridge.handle(first.press(.l2))
-        bridge.handle(second.press(.l2))
+        bridge.handle(first.press(.micButton))
+        bridge.handle(second.press(.micButton))
         #expect(sink.emissions == wisprDown, "the chord is pressed once and shared")
 
         sink.reset()
@@ -181,14 +186,14 @@ struct ControllerBridgeTests {
         // The survivor's stale release is harmless and the next press must
         // physically press the chord again rather than being swallowed.
         sink.reset()
-        bridge.handle(second.release(.l2))
+        bridge.handle(second.release(.micButton))
         #expect(sink.emissions.isEmpty)
 
-        bridge.handle(second.press(.l2))
+        bridge.handle(second.press(.micButton))
         #expect(sink.emissions == wisprDown)
         #expect(bridge.heldKeys == [.control, .option, .space])
 
-        bridge.handle(second.release(.l2))
+        bridge.handle(second.release(.micButton))
         #expect(bridge.heldKeys.isEmpty)
     }
 
@@ -199,16 +204,16 @@ struct ControllerBridgeTests {
         let (bridge, sink) = makeBridge(
             profile: ControllerProfile(
                 name: "shared",
-                bindings: [.l2: .hold(shared), .r2: .hold(shared)]
+                bindings: [.micButton: .hold(shared), .r2: .hold(shared)]
             )
         )
 
-        bridge.handle(input.press(.l2))
+        bridge.handle(input.press(.micButton))
         bridge.handle(input.press(.r2))
         #expect(sink.emissions == wisprDown)
 
         sink.reset()
-        bridge.handle(input.release(.l2))
+        bridge.handle(input.release(.micButton))
         #expect(sink.emissions.isEmpty, "the other control still holds the chord")
         #expect(bridge.heldKeys == [.control, .option, .space])
 
@@ -223,12 +228,12 @@ struct ControllerBridgeTests {
         let sink = RecordingKeyboardSink()
         let permission = MutableAccessibility(.granted)
         let bridge = ControllerBridge(
-            profile: .starterTerminal,
+            profile: Self.wisprTestProfile,
             keyboard: SyntheticKeyboard(sink: sink, accessibility: permission.capability)
         )
 
         bridge.handle(.connected(input.controller))
-        bridge.handle(input.press(.l2))
+        bridge.handle(input.press(.micButton))
         permission.revoke()
         sink.reset()
 
@@ -244,11 +249,11 @@ struct ControllerBridgeTests {
         let sink = RecordingKeyboardSink()
         let permission = MutableAccessibility(.granted)
         let bridge = ControllerBridge(
-            profile: .starterTerminal,
+            profile: Self.wisprTestProfile,
             keyboard: SyntheticKeyboard(sink: sink, accessibility: permission.capability)
         )
 
-        bridge.handle(input.press(.l2))
+        bridge.handle(input.press(.micButton))
         permission.revoke()
         sink.reset()
 
@@ -276,10 +281,10 @@ struct ControllerBridgeTests {
         var input = FakeControllerInput()
         let (bridge, _) = makeBridge()
 
-        let steps = bridge.handle(input.press(.micButton))
+        let steps = bridge.handle(input.press(.create))
 
-        #expect(steps == [BridgeStep(action: .unmapped(.micButton), outcome: .noOutput)])
-        #expect(steps[0].description == "unmapped(micButton) -> no output")
+        #expect(steps == [BridgeStep(action: .unmapped(.create), outcome: .noOutput)])
+        #expect(steps[0].description == "unmapped(create) -> no output")
     }
 
     @Test("a log line is produced for every handled input")
@@ -288,20 +293,20 @@ struct ControllerBridgeTests {
         let sink = RecordingKeyboardSink()
         let collector = LineCollector()
         let bridge = ControllerBridge(
-            profile: .starterTerminal,
+            profile: Self.wisprTestProfile,
             keyboard: SyntheticKeyboard(sink: sink, accessibility: .fixed(.granted)),
             log: { collector.append($0) }
         )
 
         bridge.handle(.connected(input.controller))
-        bridge.handle(input.press(.l2))
-        bridge.handle(input.release(.l2))
+        bridge.handle(input.press(.micButton))
+        bridge.handle(input.release(.micButton))
         bridge.shutdown()
 
         let lines = collector.lines
         #expect(lines.contains("connected Fake DualSense (fake-1)"))
-        #expect(lines.contains("l2 pressed: beginHold(control+option+space) -> emitted"))
-        #expect(lines.contains("l2 released: endHold(control+option+space) -> emitted"))
+        #expect(lines.contains("micButton pressed: beginHold(control+option+space) -> emitted"))
+        #expect(lines.contains("micButton released: endHold(control+option+space) -> emitted"))
         #expect(lines.contains("shutdown"))
         #expect(!lines.contains(where: { $0.contains("/Users/") }))
     }
@@ -312,7 +317,7 @@ struct ControllerBridgeTests {
         let (bridge, _) = makeBridge()
 
         bridge.handle(.connected(input.controller))
-        bridge.handle(input.press(.l2))
+        bridge.handle(input.press(.micButton))
 
         let diagnostics = bridge.diagnostics
         #expect(diagnostics.profileName == "starter-terminal")
@@ -344,7 +349,7 @@ struct ControllerBridgeTests {
             bindings: [.r1: .hold(try KeyStroke(parsing: "cmd+shift+d"))]
         )
 
-        bridge.handle(input.press(.l2))
+        bridge.handle(input.press(.micButton))
         sink.reset()
         bridge.use(profile: custom)
 

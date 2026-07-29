@@ -6,12 +6,13 @@ sessions on macOS.
 The project is intended to make Codex, Claude Code, and other tmux-backed
 sessions usable from a controller plus Wispr Flow:
 
-- a dedicated controller action starts/stops Wispr Flow press-to-talk;
+- R3 starts/stops Wispr Flow through its Ctrl-S toggle shortcut;
 - Cross sends Enter and Circle cancels;
 - the shoulder buttons drive tmux windows and the session list;
 - the D-pad walks shell history;
 - the right stick moves the pointer and the left stick scrolls;
-- R2 holds the right mouse button for context menus and right-drag gestures;
+- one touchpad finger moves the pointer and two fingers scroll;
+- R2 holds left click and L2 holds right click, including drag gestures;
 - the latest safe response can be spoken locally with macOS `say`.
 
 This is an early, macOS-first open-source project. The first milestone favors
@@ -70,10 +71,11 @@ previous value back when it stops.
 
 | Control | Action | Keys |
 | --- | --- | --- |
-| `l2` | hold | `control+option+space` (Wispr Flow press-to-talk) |
 | `r3` | tap | `control+s` (Wispr Flow toggle) |
 | `cross` | tap | `return` |
 | `circle` | tap | `escape` |
+| `square` | tap | `delete` (Backspace) |
+| `triangle` | tap | `option+command+f5` (Accessibility Shortcuts) |
 | `touchpadButton` | tap | `control+grave` |
 | `r1` | tapSequence | `control+b, n` (tmux next window) |
 | `l1` | tapSequence | `control+b, p` (tmux previous window) |
@@ -85,7 +87,10 @@ previous value back when it stops.
 | --- | --- |
 | right stick | move the pointer — deadzone 0.15, curve 2.0, 700 px/s |
 | left stick | scroll — deadzone 0.2, curve 2.0, 500 px/s |
-| `r2` | hold the right mouse button |
+| one touchpad finger | move the pointer relative to finger travel |
+| two touchpad fingers | natural scroll from the contacts' average movement |
+| `r2` | hold the left mouse button |
+| `l2` | hold the right mouse button |
 
 A `tapSequence` sends each shortcut as a complete press *and release*, in order.
 That is what the tmux bindings need: tmux reads `control+b` and then the command
@@ -94,30 +99,41 @@ is only an ordered list — there are no delays, repeats, or nesting, because a
 binding that can express timing stops being a binding and becomes a macro
 language.
 
-Three controls are left out on purpose. The DualSense mic button keeps its
-hardware mute, `r2` belongs to the right mouse button rather than the keyboard,
-and Square and Triangle stay free as the obvious place to add your own binding.
-Nothing in the starter map uses Command or a delete key, so a misfire in a
-terminal cannot destroy anything.
+The DualSense mic button keeps its hardware mute, while R2 and L2 belong to the
+pointer boundary rather than keyboard routing. Square is deliberately Backspace.
+Triangle opens macOS Accessibility Shortcuts, the supported route to enable the
+on-screen Accessibility Keyboard. Those face-button mappings remain ordinary
+profile data and can be replaced.
 
-### Stick navigation
+### Stick and touchpad navigation
 
 The right stick moves the macOS pointer and the left stick scrolls the focused
 view, both continuously while the stick is held.
 
-Holding `r2` presses the right mouse button and keeps it down. Pushing the right
-stick while `r2` is held emits right-button *drag* events rather than plain moves,
-which is what macOS requires for an application to track a right-button gesture
-at all. Releasing `r2` lifts the button and the stick goes back to plain movement.
+Holding R2 presses the left mouse button; holding L2 presses the right mouse
+button. Pointer motion while either trigger is held emits the matching native
+left- or right-drag event rather than a plain move. Releasing the trigger lifts
+that button and motion returns to ordinary cursor movement.
 
-What that gets you is a genuine right-button hold and drag: context menus, and
-whatever right-drag gestures the focused application happens to implement. It is
-*not* text selection — macOS selects with a left-button drag, and left and middle
-click are still not bound to anything.
+That makes R2 suitable for selection and ordinary dragging, and L2 suitable for
+context menus or app-specific right-drag gestures. If both are held, left drag
+has priority until R2 is released.
 
-A held mouse button is worse to leave latched than a held key, so it is released
-on every exit: `r2` release, controller disconnect, reconnect, a profile change,
-shutdown, and process teardown. Those cleanup releases deliberately ignore the
+The touch surface is event-driven rather than tick-driven. The first contact
+point becomes a baseline, so landing on an edge never jumps the cursor. One
+finger then produces relative cursor motion. Adding a second finger switches to
+scrolling by the two contacts' average movement, and lifting either finger does
+not move the pointer. The physical touchpad *click* remains the separate
+Ctrl-backtick terminal shortcut.
+
+These are equivalent pointer and scroll events, not synthetic system-level
+multitouch. macOS does not expose a supported way for this bridge to inject
+three- or four-finger Mission Control/Spaces gestures; those can be added later
+as explicit keyboard-shortcut mappings.
+
+A held mouse button is worse to leave latched than a held key, so both are
+released on every exit: trigger release, controller disconnect/reconnect, a
+profile change, shutdown, and process teardown. Cleanup deliberately ignores the
 Accessibility permission check, because revoking permission mid-drag must not be
 able to leave the button down. Pausing mid-drag is safe: the stick returning to
 centre drops the sub-pixel remainder but does not release the button.
@@ -148,9 +164,9 @@ tick, which is what makes it usable for tuning:
 ```text
   mouse dx=+318 dy=-96 over 0.50s (61 samples)
   scroll dx=+0 dy=-140 over 0.50s (61 samples)
-  right button down
-  drag dx=+84 dy=+12 over 0.50s (61 samples)
-  right button up
+  left button down
+  left drag dx=+84 dy=+12 over 0.50s (61 samples)
+  left button up
 ```
 
 Drag motion is summarized separately from ordinary motion, and button
@@ -161,10 +177,11 @@ Both pointer and scroll output need the same Accessibility permission as the
 keyboard, and it is re-read per event: revoking it mid-motion stops the cursor
 rather than latching it.
 
-Set the Wispr Flow dictation shortcut to the same keys as the `hold` binding.
-Any unique chord built from `control`, `option`, `shift`, and `command` plus one
-key works; `fn` cannot be emitted synthetically and is rejected with an
-explanation.
+Set Wispr Flow's toggle shortcut to Ctrl-S for the starter R3 mapping. If you
+prefer press-to-talk, add a `hold` binding to a non-trigger control and set Wispr
+Flow to the same chord. Any unique chord built from `control`, `option`, `shift`,
+and `command` plus one key works; `fn` cannot be emitted synthetically and is
+rejected with an explanation.
 
 ### Changing the mapping
 

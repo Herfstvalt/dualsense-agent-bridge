@@ -125,30 +125,29 @@ public struct ControllerProfile: Hashable, Sendable {
 
     /// The default terminal profile.
     ///
-    /// Dictation is on the left trigger: `l2` holds the Wispr Flow press-to-talk
-    /// shortcut and `r3` taps its toggle. `cross` sends Enter, `circle` cancels
-    /// with Escape, and the D-pad walks shell history.
+    /// `r3` taps the Wispr Flow toggle. `cross` sends Enter, `circle` cancels with
+    /// Escape, Square sends Backspace, and the D-pad walks shell history.
     ///
     /// The shoulders drive tmux through its prefix: `r1` and `l1` step between
     /// windows and `l3` opens the session list. Each is a sequence rather than a
     /// chord because tmux reads the prefix and the command key as two separate
     /// keystrokes.
     ///
-    /// Three controls are deliberately left out. The DualSense mic button keeps
-    /// its hardware mute, `r2` belongs to the right mouse button rather than the
-    /// keyboard, and Square and Triangle stay free so there is an obvious place to
-    /// add a personal binding. Nothing here needs Command or a delete key, so a
-    /// misfire in a terminal cannot destroy anything.
+    /// Triangle opens macOS Accessibility Shortcuts (`Option-Command-F5`), which
+    /// provides the supported path to the on-screen Accessibility Keyboard. The
+    /// DualSense mic button keeps its hardware mute; R2 and L2 belong to the left
+    /// and right mouse buttons rather than keyboard routing.
     ///
     /// The right stick moves the pointer and the left stick scrolls, using the
     /// conservative default navigation settings.
     public static let starterTerminal = ControllerProfile(
         name: "starter-terminal",
         bindings: [
-            .l2: .hold(KeyStroke(key: .space, modifiers: [.control, .option])),
             .r3: .tap(KeyStroke(key: .s, modifiers: .control)),
             .cross: .tap(KeyStroke(key: .return)),
             .circle: .tap(KeyStroke(key: .escape)),
+            .square: .tap(KeyStroke(key: .delete)),
+            .triangle: .tap(KeyStroke(key: .f5, modifiers: [.option, .command])),
             .touchpadButton: .tap(KeyStroke(key: .grave, modifiers: .control)),
             .r1: .tapSequence([tmuxPrefix, KeyStroke(key: .n)]),
             .l1: .tapSequence([tmuxPrefix, KeyStroke(key: .p)]),

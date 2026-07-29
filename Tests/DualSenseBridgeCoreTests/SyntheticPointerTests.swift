@@ -20,6 +20,16 @@ final class FailingPointerSink: PointerSink {
         throw Failure()
     }
 
+    func pressLeftButton() throws {
+        attempts += 1
+        throw Failure()
+    }
+
+    func releaseLeftButton() throws {
+        attempts += 1
+        throw Failure()
+    }
+
     func pressRightButton() throws {
         attempts += 1
         throw Failure()

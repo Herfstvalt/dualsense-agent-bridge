@@ -3,8 +3,8 @@ import Testing
 
 @testable import DualSenseBridgeCore
 
-@Suite("R2 holds the right mouse button and the right stick drags with it")
-struct RightButtonBridgeTests {
+@Suite("R2 and L2 hold the left and right mouse buttons")
+struct PointerButtonBridgeTests {
     /// Linear response, 100 units per second, so a 0.01s tick is exactly one
     /// pixel at full deflection.
     private static let settings = NavigationSettings(
@@ -52,22 +52,60 @@ struct RightButtonBridgeTests {
         return harness
     }
 
-    @Test("R2 presses the right mouse button and releasing R2 lifts it")
-    func r2HoldsTheRightButton() {
+    @Test("R2 holds the left mouse button and releasing R2 lifts it")
+    func r2HoldsTheLeftButton() {
+        var harness = makeHarness()
+
+        harness.bridge.handle(harness.input.press(.r2))
+        harness.bridge.handle(harness.input.release(.r2))
+
+        #expect(harness.pointer.transcript == ["left button down", "left button up"])
+    }
+
+    @Test("the right stick left-drags while R2 is held")
+    func rightStickLeftDragsWhileR2IsHeld() {
+        var harness = makeHarness()
+
+        harness.bridge.handle(harness.input.press(.r2))
+        harness.bridge.handle(harness.input.stick(.right, x: 1, y: 0))
+        harness.tick()
+        harness.bridge.shutdown()
+
+        #expect(
+            harness.pointer.transcript == [
+                "left button down",
+                "left drag dx=+1 dy=+0",
+                "left button up",
+            ]
+        )
+    }
+
+    @Test("L2 holds the right mouse button and releasing L2 lifts it")
+    func l2HoldsTheRightButton() {
+        var harness = makeHarness()
+
+        harness.bridge.handle(harness.input.press(.l2))
+        harness.bridge.handle(harness.input.release(.l2))
+
+        #expect(harness.pointer.transcript == ["right button down", "right button up"])
+    }
+
+    @Test("R2 still controls the left button after a connection event")
+    func r2HoldsTheLeftButtonAfterConnect() {
         var harness = makeHarness()
 
         harness.bridge.handle(.connected(harness.input.controller))
         harness.bridge.handle(harness.input.press(.r2))
         harness.bridge.handle(harness.input.release(.r2))
 
-        #expect(harness.pointer.transcript == ["right button down", "right button up"])
+        #expect(harness.pointer.transcript == ["left button down", "left button up"])
     }
 
     @Test("the right stick drags while the right button is held")
     func rightStickDragsWhileHeld() {
         var harness = makeHarness()
 
-        harness.bridge.handle(harness.input.press(.r2))
+        harness.bridge.handle(harness.input.press(.l2))
         harness.bridge.handle(harness.input.stick(.right, x: 1, y: 0))
         harness.tick(2)
 
@@ -86,9 +124,9 @@ struct RightButtonBridgeTests {
 
         harness.bridge.handle(harness.input.stick(.right, x: 1, y: 0))
         harness.tick()
-        harness.bridge.handle(harness.input.press(.r2))
+        harness.bridge.handle(harness.input.press(.l2))
         harness.tick()
-        harness.bridge.handle(harness.input.release(.r2))
+        harness.bridge.handle(harness.input.release(.l2))
         harness.tick()
 
         #expect(
@@ -104,23 +142,23 @@ struct RightButtonBridgeTests {
 
     // MARK: - Idempotence
 
-    @Test("duplicate R2 presses and releases emit one down and one up")
+    @Test("duplicate L2 presses and releases emit one down and one up")
     func duplicateTransitionsAreIdempotent() {
         var harness = makeHarness()
 
-        harness.bridge.handle(harness.input.press(.r2))
-        harness.bridge.handle(harness.input.press(.r2))
-        harness.bridge.handle(harness.input.release(.r2))
-        harness.bridge.handle(harness.input.release(.r2))
+        harness.bridge.handle(harness.input.press(.l2))
+        harness.bridge.handle(harness.input.press(.l2))
+        harness.bridge.handle(harness.input.release(.l2))
+        harness.bridge.handle(harness.input.release(.l2))
 
         #expect(harness.pointer.transcript == ["right button down", "right button up"])
     }
 
-    @Test("an R2 release with no press behind it emits nothing")
+    @Test("an L2 release with no press behind it emits nothing")
     func outOfOrderReleaseEmitsNothing() {
         var harness = makeHarness()
 
-        harness.bridge.handle(harness.input.release(.r2))
+        harness.bridge.handle(harness.input.release(.l2))
 
         #expect(harness.pointer.emissions.isEmpty)
     }
@@ -149,24 +187,24 @@ struct RightButtonBridgeTests {
 
         // Only the shrug is suppressed, never a binding a user wrote on purpose.
         #expect(steps == [BridgeStep(action: .tap(KeyStroke(key: .a)), outcome: .emitted)])
-        #expect(harness.pointer.transcript == ["right button down"])
+        #expect(harness.pointer.transcript == ["left button down"])
     }
 
     // MARK: - Ownership
 
-    @Test("one controller's R2 release cannot lift another controller's hold")
+    @Test("one controller's L2 release cannot lift another controller's hold")
     func holdOwnershipIsPerController() {
         var harness = makeHarness()
         var second = FakeControllerInput(id: "fake-2", displayName: "Second DualSense")
 
-        harness.bridge.handle(harness.input.press(.r2))
-        harness.bridge.handle(second.press(.r2))
-        // The second controller lets go, but the first is still holding R2 down.
-        harness.bridge.handle(second.release(.r2))
+        harness.bridge.handle(harness.input.press(.l2))
+        harness.bridge.handle(second.press(.l2))
+        // The second controller lets go, but the first is still holding L2 down.
+        harness.bridge.handle(second.release(.l2))
 
         #expect(harness.pointer.transcript == ["right button down"])
 
-        harness.bridge.handle(harness.input.release(.r2))
+        harness.bridge.handle(harness.input.release(.l2))
         #expect(harness.pointer.transcript == ["right button down", "right button up"])
     }
 
@@ -177,8 +215,8 @@ struct RightButtonBridgeTests {
 
         harness.bridge.handle(.connected(harness.input.controller))
         harness.bridge.handle(.connected(second.controller))
-        harness.bridge.handle(harness.input.press(.r2))
-        harness.bridge.handle(second.press(.r2))
+        harness.bridge.handle(harness.input.press(.l2))
+        harness.bridge.handle(second.press(.l2))
         harness.bridge.handle(.disconnected(second.controller))
 
         #expect(harness.pointer.transcript == ["right button down"])
@@ -192,7 +230,7 @@ struct RightButtonBridgeTests {
         var harness = makeHarness()
 
         harness.bridge.handle(.connected(harness.input.controller))
-        harness.bridge.handle(harness.input.press(.r2))
+        harness.bridge.handle(harness.input.press(.l2))
         harness.bridge.handle(.disconnected(harness.input.controller))
 
         #expect(harness.pointer.transcript == ["right button down", "right button up"])
@@ -202,7 +240,7 @@ struct RightButtonBridgeTests {
     func reconnectInheritsNothing() {
         var harness = makeHarness()
 
-        harness.bridge.handle(harness.input.press(.r2))
+        harness.bridge.handle(harness.input.press(.l2))
         harness.bridge.handle(.connected(harness.input.controller))
 
         #expect(harness.pointer.transcript == ["right button down", "right button up"])
@@ -219,7 +257,7 @@ struct RightButtonBridgeTests {
     func shutdownReleasesTheHeldButton() {
         var harness = makeHarness()
 
-        harness.bridge.handle(harness.input.press(.r2))
+        harness.bridge.handle(harness.input.press(.l2))
         harness.bridge.shutdown()
 
         #expect(harness.pointer.transcript == ["right button down", "right button up"])
@@ -229,7 +267,7 @@ struct RightButtonBridgeTests {
     func profileReplacementReleasesTheHeldButton() {
         var harness = makeHarness()
 
-        harness.bridge.handle(harness.input.press(.r2))
+        harness.bridge.handle(harness.input.press(.l2))
         harness.bridge.use(profile: ControllerProfile(name: "other", bindings: [:], navigation: Self.settings))
 
         #expect(harness.pointer.transcript == ["right button down", "right button up"])
@@ -239,9 +277,9 @@ struct RightButtonBridgeTests {
     func rightButtonWorksAfterProfileReplacement() {
         var harness = makeHarness()
 
-        harness.bridge.handle(harness.input.press(.r2))
+        harness.bridge.handle(harness.input.press(.l2))
         harness.bridge.use(profile: ControllerProfile(name: "other", bindings: [:], navigation: Self.settings))
-        harness.bridge.handle(harness.input.press(.r2))
+        harness.bridge.handle(harness.input.press(.l2))
 
         // The sweep cleared the owner set, so this is a genuine fresh press.
         #expect(
@@ -264,7 +302,7 @@ struct RightButtonBridgeTests {
                 keyboard: SyntheticKeyboard(sink: RecordingKeyboardSink(), accessibility: .fixed(.granted)),
                 pointer: SyntheticPointer(sink: pointerSink, accessibility: .fixed(.granted))
             )
-            bridge.handle(input.press(.r2))
+            bridge.handle(input.press(.l2))
             #expect(pointerSink.transcript == ["right button down"])
         }
 
@@ -282,7 +320,7 @@ struct RightButtonBridgeTests {
             pointer: SyntheticPointer(sink: pointerSink, accessibility: accessibility.capability)
         )
 
-        bridge.handle(input.press(.r2))
+        bridge.handle(input.press(.l2))
         accessibility.revoke()
         bridge.shutdown()
 
@@ -293,7 +331,7 @@ struct RightButtonBridgeTests {
     func pressRefusedWithoutPermission() {
         var harness = makeHarness(status: .denied)
 
-        harness.bridge.handle(harness.input.press(.r2))
+        harness.bridge.handle(harness.input.press(.l2))
         harness.bridge.handle(harness.input.stick(.right, x: 1, y: 0))
         harness.tick()
 
@@ -307,13 +345,13 @@ struct RightButtonBridgeTests {
         let lines = LineCollector()
         var harness = makeHarness(log: { lines.append($0) })
 
-        harness.bridge.handle(harness.input.press(.r2))
-        harness.bridge.handle(harness.input.release(.r2))
+        harness.bridge.handle(harness.input.press(.l2))
+        harness.bridge.handle(harness.input.release(.l2))
 
         #expect(
             lines.lines == [
-                "r2 pressed: pressRightButton -> emitted",
-                "r2 released: releaseRightButton -> emitted",
+                "l2 pressed: pressRightButton -> emitted",
+                "l2 released: releaseRightButton -> emitted",
             ]
         )
     }

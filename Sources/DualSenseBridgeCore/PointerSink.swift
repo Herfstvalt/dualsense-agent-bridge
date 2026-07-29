@@ -3,18 +3,25 @@ import Foundation
 /// A single synthetic pointer event, in whole units.
 public enum PointerEmission: Hashable, Sendable, CustomStringConvertible {
     case move(dx: Int, dy: Int)
+    /// A move made while the left button is down.
+    case leftDrag(dx: Int, dy: Int)
     /// A move made while the right button is down. macOS needs a distinct event
     /// type for this or applications do not track the drag at all.
     case drag(dx: Int, dy: Int)
     case scroll(dx: Int, dy: Int)
+    case leftButtonDown
+    case leftButtonUp
     case rightButtonDown
     case rightButtonUp
 
     public var description: String {
         switch self {
         case .move(let dx, let dy): String(format: "move dx=%+d dy=%+d", dx, dy)
+        case .leftDrag(let dx, let dy): String(format: "left drag dx=%+d dy=%+d", dx, dy)
         case .drag(let dx, let dy): String(format: "drag dx=%+d dy=%+d", dx, dy)
         case .scroll(let dx, let dy): String(format: "scroll dx=%+d dy=%+d", dx, dy)
+        case .leftButtonDown: "left button down"
+        case .leftButtonUp: "left button up"
         case .rightButtonDown: "right button down"
         case .rightButtonUp: "right button up"
         }
@@ -33,6 +40,8 @@ public enum PointerEmission: Hashable, Sendable, CustomStringConvertible {
 public protocol PointerSink: AnyObject {
     func moveCursor(dx: Int, dy: Int) throws
     func scroll(dx: Int, dy: Int) throws
+    func pressLeftButton() throws
+    func releaseLeftButton() throws
     func pressRightButton() throws
     func releaseRightButton() throws
 }
@@ -40,16 +49,33 @@ public protocol PointerSink: AnyObject {
 /// A sink that records instead of emitting, used by fake-axis tests.
 public final class RecordingPointerSink: PointerSink {
     public private(set) var emissions: [PointerEmission] = []
+    private var leftButtonIsDown = false
     private var rightButtonIsDown = false
 
     public init() {}
 
     public func moveCursor(dx: Int, dy: Int) throws {
-        emissions.append(rightButtonIsDown ? .drag(dx: dx, dy: dy) : .move(dx: dx, dy: dy))
+        if leftButtonIsDown {
+            emissions.append(.leftDrag(dx: dx, dy: dy))
+        } else if rightButtonIsDown {
+            emissions.append(.drag(dx: dx, dy: dy))
+        } else {
+            emissions.append(.move(dx: dx, dy: dy))
+        }
     }
 
     public func scroll(dx: Int, dy: Int) throws {
         emissions.append(.scroll(dx: dx, dy: dy))
+    }
+
+    public func pressLeftButton() throws {
+        leftButtonIsDown = true
+        emissions.append(.leftButtonDown)
+    }
+
+    public func releaseLeftButton() throws {
+        leftButtonIsDown = false
+        emissions.append(.leftButtonUp)
     }
 
     public func pressRightButton() throws {
@@ -119,8 +145,10 @@ public final class LoggingPointerSink: PointerSink {
     private let now: () -> Double
     private let log: (String) -> Void
     private var mouse = Window(label: "mouse")
+    private var leftDrag = Window(label: "left drag")
     private var drag = Window(label: "drag")
     private var wheel = Window(label: "scroll")
+    private var leftButtonIsDown = false
     private var rightButtonIsDown = false
 
     public init(
@@ -134,7 +162,9 @@ public final class LoggingPointerSink: PointerSink {
     }
 
     public func moveCursor(dx: Int, dy: Int) throws {
-        if rightButtonIsDown {
+        if leftButtonIsDown {
+            record(dx: dx, dy: dy, in: &leftDrag)
+        } else if rightButtonIsDown {
             record(dx: dx, dy: dy, in: &drag)
         } else {
             record(dx: dx, dy: dy, in: &mouse)
@@ -143,6 +173,16 @@ public final class LoggingPointerSink: PointerSink {
 
     public func scroll(dx: Int, dy: Int) throws {
         record(dx: dx, dy: dy, in: &wheel)
+    }
+
+    public func pressLeftButton() throws {
+        leftButtonIsDown = true
+        report(PointerEmission.leftButtonDown.description)
+    }
+
+    public func releaseLeftButton() throws {
+        leftButtonIsDown = false
+        report(PointerEmission.leftButtonUp.description)
     }
 
     public func pressRightButton() throws {
@@ -174,6 +214,7 @@ public final class LoggingPointerSink: PointerSink {
     public func flush() {
         let instant = now()
         drain(&mouse, at: instant)
+        drain(&leftDrag, at: instant)
         drain(&drag, at: instant)
         drain(&wheel, at: instant)
     }

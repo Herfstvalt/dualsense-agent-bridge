@@ -111,6 +111,7 @@ public final class ControllerBridge {
 
     private var router: ActionRouter
     private var navigation: NavigationEngine
+    private var touchpadNavigation: TouchpadNavigationEngine
     private var pointerButtons = PointerButtonRouter()
     private let keyboard: SyntheticKeyboard
     /// Absent when this bridge has no pointer boundary, in which case stick input
@@ -126,10 +127,12 @@ public final class ControllerBridge {
         profile: ControllerProfile,
         keyboard: SyntheticKeyboard,
         pointer: SyntheticPointer? = nil,
+        touchpadSettings: TouchpadNavigationSettings = .default,
         log: ((String) -> Void)? = nil
     ) {
         self.router = ActionRouter(profile: profile)
         self.navigation = NavigationEngine(settings: profile.navigation)
+        self.touchpadNavigation = TouchpadNavigationEngine(settings: touchpadSettings)
         self.keyboard = keyboard
         self.pointer = pointer
         self.log = log
@@ -187,6 +190,11 @@ public final class ControllerBridge {
             return []
         }
 
+        if case .touchpad(let event) = input {
+            performTouchpadNavigation(event)
+            return []
+        }
+
         let buttonSteps = performPointerButtons(for: input)
         let steps = router.handle(input).map { action in
             BridgeStep(action: action, outcome: keyboard.perform(action))
@@ -232,6 +240,7 @@ public final class ControllerBridge {
             BridgeStep(action: action, outcome: keyboard.perform(action))
         }
         navigation.replaceSettings(with: profile.navigation)
+        touchpadNavigation.clearAll()
         stopNavigating()
         releaseAllPointerButtons()
         log?("profile \(profile.name)")
@@ -250,6 +259,7 @@ public final class ControllerBridge {
         isStopped = true
         controllers.removeAll()
         navigation.clearAll()
+        touchpadNavigation.clearAll()
         stopNavigating()
         releaseAllPointerButtons()
         log?("shutdown")
@@ -265,15 +275,22 @@ public final class ControllerBridge {
         switch input {
         case .axis(let event):
             navigation.update(event)
+        case .touchpad:
+            // Touch deltas are performed immediately by `handle`; unlike a held
+            // stick they owe no repeated motion on future ticks.
+            break
         case .connected(let controller):
             // A reconnect can never inherit motion from a previous session.
             navigation.clear(controller: controller)
+            touchpadNavigation.clear(controller: controller)
             stopNavigating()
         case .disconnected(let controller):
             navigation.clear(controller: controller)
+            touchpadNavigation.clear(controller: controller)
             stopNavigating()
         case .shutdown:
             navigation.clearAll()
+            touchpadNavigation.clearAll()
             stopNavigating()
         case .button:
             break
@@ -283,6 +300,25 @@ public final class ControllerBridge {
     private func stopNavigating() {
         pointer?.reset()
         navigating = false
+    }
+
+    /// Applies one touch delta immediately. A touch surface reports movement
+    /// continuously, so it does not need the timer thumbsticks use.
+    private func performTouchpadNavigation(_ event: ControllerTouchpadEvent) {
+        let outputs = touchpadNavigation.handle(event)
+
+        if event.phase != .moved {
+            log?("touchpad \(event.contact.rawValue) \(event.phase.rawValue) \(event.position)")
+        }
+
+        guard let pointer else { return }
+        let steps = outputs.map { NavigationStep(output: $0, outcome: pointer.perform($0)) }
+        logNavigationProblems(in: steps, at: event.timestamp)
+
+        // Do not carry a fraction of the previous swipe into a new gesture.
+        if event.phase == .ended, touchpadNavigation.isIdle {
+            pointer.reset()
+        }
     }
 
     // MARK: - Pointer buttons
@@ -332,7 +368,7 @@ public final class ControllerBridge {
             }
         case .disconnected(let controller):
             controllers.removeAll { $0 == controller }
-        case .axis, .button, .shutdown:
+        case .axis, .touchpad, .button, .shutdown:
             break
         }
     }
@@ -356,6 +392,10 @@ public final class ControllerBridge {
             // Never reached: axis input returns before routing. Named rather
             // than defaulted so a new input case cannot slip through silently.
             prefix = "\(event.stick.rawValue) stick \(event.position)"
+        case .touchpad(let event):
+            // Never reached: touchpad input returns immediately after its
+            // pointer output. Kept exhaustive so new input kinds cannot hide.
+            prefix = "touchpad \(event.contact.rawValue) \(event.phase.rawValue) \(event.position)"
         case .shutdown:
             prefix = "shutdown"
         }

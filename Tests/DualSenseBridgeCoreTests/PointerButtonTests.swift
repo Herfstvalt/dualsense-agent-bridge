@@ -14,14 +14,33 @@ final class ScriptedPointerSink: PointerSink {
     var failsPress = false
     var failsRelease = false
     private(set) var emissions: [PointerEmission] = []
+    private var leftButtonIsDown = false
     private var rightButtonIsDown = false
 
     func moveCursor(dx: Int, dy: Int) throws {
-        emissions.append(rightButtonIsDown ? .drag(dx: dx, dy: dy) : .move(dx: dx, dy: dy))
+        if leftButtonIsDown {
+            emissions.append(.leftDrag(dx: dx, dy: dy))
+        } else if rightButtonIsDown {
+            emissions.append(.drag(dx: dx, dy: dy))
+        } else {
+            emissions.append(.move(dx: dx, dy: dy))
+        }
     }
 
     func scroll(dx: Int, dy: Int) throws {
         emissions.append(.scroll(dx: dx, dy: dy))
+    }
+
+    func pressLeftButton() throws {
+        if failsPress { throw Failure() }
+        leftButtonIsDown = true
+        emissions.append(.leftButtonDown)
+    }
+
+    func releaseLeftButton() throws {
+        leftButtonIsDown = false
+        if failsRelease { throw Failure() }
+        emissions.append(.leftButtonUp)
     }
 
     func pressRightButton() throws {
@@ -138,6 +157,27 @@ struct PointerButtonTests {
         #expect(sink.emissions.isEmpty)
     }
 
+    @Test("a cleanup sweep releases both mouse buttons in a stable order")
+    func cleanupSweepReleasesBothButtons() {
+        let sink = RecordingPointerSink()
+        let pointer = SyntheticPointer(sink: sink, accessibility: .fixed(.granted))
+
+        pointer.perform(.pressLeftButton)
+        pointer.perform(.pressRightButton)
+        #expect(pointer.perform(.releaseAllPointerButtons) == .emitted)
+
+        #expect(
+            sink.transcript == [
+                "left button down",
+                "right button down",
+                "left button up",
+                "right button up",
+            ]
+        )
+        #expect(!pointer.isLeftButtonDown)
+        #expect(!pointer.isRightButtonDown)
+    }
+
     @Test("a duplicate press emits no second button-down")
     func duplicatePressEmitsOnce() {
         let sink = RecordingPointerSink()
@@ -176,6 +216,8 @@ struct PointerButtonTests {
 
     @Test("pointer-button actions describe themselves for diagnostics")
     func actionDescriptions() {
+        #expect(PointerButtonAction.pressLeftButton.description == "pressLeftButton")
+        #expect(PointerButtonAction.releaseLeftButton.description == "releaseLeftButton")
         #expect(PointerButtonAction.pressRightButton.description == "pressRightButton")
         #expect(PointerButtonAction.releaseRightButton.description == "releaseRightButton")
         #expect(PointerButtonAction.releaseAllPointerButtons.description == "releaseAllPointerButtons")

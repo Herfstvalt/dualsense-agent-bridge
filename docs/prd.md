@@ -63,8 +63,9 @@ then adds a documented live hardware smoke test on the user's Mac.
     can listen while keeping my hands on the controller.
 17. As a privacy-conscious user, I want secrets and sensitive terminal noise
     redacted or bounded before speech, so that TTS does not expose credentials.
-18. As a controller user, I want the right stick to act as a mouse and the
-    left stick/D-pad to scroll or navigate, so that I can roam through output.
+18. As a controller user, I want the right stick or one touchpad finger to act
+    as a mouse and the left stick or two fingers to scroll, so that I can roam
+    through output.
 19. As a controller user, I want deadzones, repeat rates, and mappings to be
     configurable, so that the controls feel natural on my hardware.
 20. As a user with multiple terminal applications, I want app-aware profiles,
@@ -100,10 +101,15 @@ then adds a documented live hardware smoke test on the user's Mac.
 - Treat the physical DualSense mic button as independently configurable; the
   default profile may reserve it for hardware mute while a separate button
   controls Wispr.
-- Use Cross→Enter, Circle→Escape, R3→Ctrl-S, and touchpad click→Ctrl-backtick in
-  the starter terminal profile. Use R1/L1/L3 for fully released tmux prefix
-  sequences (`Ctrl-B`, then `n`/`p`/`s`) and D-pad Up/Down for shell history.
-  A literal session kill is never bound to a normal button.
+- Use Cross→Enter, Circle→Escape, Square→Backspace, R3→Ctrl-S, and touchpad
+  click→Ctrl-backtick in the starter terminal profile. Triangle opens macOS
+  Accessibility Shortcuts (`Option-Command-F5`) as the supported route to the
+  on-screen keyboard. Use R1/L1/L3 for fully released tmux prefix sequences
+  (`Ctrl-B`, then `n`/`p`/`s`) and D-pad Up/Down for shell history. A literal
+  session kill is never bound to a normal button.
+- Reserve R2 for left-button hold/drag and L2 for right-button hold/drag. Treat
+  one touchpad contact as relative cursor motion and two contacts as natural
+  scrolling; keep the physical touchpad click as its independent key binding.
 - Make tmux the canonical local control plane. The Session Bridge exposes
   list, select, focus/attach, send, interrupt, capture, and latest-response
   operations through typed interfaces.
@@ -224,10 +230,14 @@ omission:
 - **Stick role swapping.** The right stick is the pointer and the left stick
   scrolls; every other knob is configurable. Swapping roles is a one-line change
   to `NavigationSettings.role(of:)` when someone actually wants it.
-- **Configurable mouse-button remapping.** R2 has one fixed pointer action: hold
-  the right button, with right-stick movement emitted as a right-button drag.
-  Left click, middle click, and arbitrary mouse-button profile bindings remain
-  deferred until the hardware pass identifies a safe layout.
+- **Configurable mouse-button remapping.** R2 and L2 now have fixed pointer
+  actions: left and right button hold/drag. Middle click and arbitrary
+  mouse-button profile bindings remain deferred until the hardware pass proves
+  a need for them.
+- **System-level multitouch gestures.** One contact moves and two contacts
+  scroll through supported CoreGraphics events. Synthetic three-/four-finger
+  Mission Control or Spaces gestures are not exposed by a supported macOS API;
+  future gestures should map to explicit keyboard shortcuts instead.
 
 ### S5 — Launch shell and end-to-end release smoke
 

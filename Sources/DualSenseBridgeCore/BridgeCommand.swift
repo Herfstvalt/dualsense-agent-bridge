@@ -154,13 +154,18 @@ extension BridgeCommand {
         response curve, speed, and axis inversion live in the profile's
         "navigation" section, so tuning them needs no rebuild. Use --dry-run to
         read the resulting motion as periodic summaries while tuning.
+
+        On a DualSense touch surface, one finger moves the pointer and two
+        fingers scroll. R2 holds the left mouse button; L2 holds the right.
         """
 
     public static var controlsText: String {
         let controls = ControllerControl.allCases.map { control in
             switch control {
             case .r2:
-                "  \(control.rawValue) (also holds the right mouse button)"
+                "  \(control.rawValue) (reserved: holds the left mouse button)"
+            case .l2:
+                "  \(control.rawValue) (reserved: holds the right mouse button)"
             case .micButton:
                 "  \(control.rawValue) (starter profile leaves this unbound for hardware mute)"
             default:

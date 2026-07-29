@@ -59,7 +59,7 @@ public struct ActionRouter: Sendable {
         switch input {
         case .button(let event):
             return handle(event)
-        case .axis:
+        case .axis, .touchpad:
             // Stick axes never produce keyboard intent. They are navigation, and
             // the navigation engine owns them, so a stick can be held through a
             // dictation hold without disturbing it.
@@ -94,11 +94,11 @@ public struct ActionRouter: Sendable {
 
         guard let binding = profile.binding(for: event.control) else {
             // A control the pointer already speaks for is not unbound, so shrugging
-            // at it would tell the user R2 does nothing while it is in fact holding
-            // the right mouse button down. Note this suppresses only the shrug: an
+            // at it would tell the user a trigger does nothing while it is in fact
+            // holding a mouse button down. Note this suppresses only the shrug: an
             // explicit binding below is still honored, because silently ignoring a
             // mapping someone wrote on purpose would be the worse trap.
-            guard event.control != PointerButtonRouter.rightButtonControl else { return [] }
+            guard !PointerButtonRouter.reservedControls.contains(event.control) else { return [] }
             // Only report on press so a shrug does not appear twice per button.
             return event.phase.isPressed ? [.unmapped(event.control)] : []
         }

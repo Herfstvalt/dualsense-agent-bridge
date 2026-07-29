@@ -13,6 +13,11 @@ struct StickNavigationBridgeTests {
         tickInterval: 0.01,
         maximumTickInterval: 0.05
     )
+    private static let testBindings: [ControllerControl: ControllerBinding] = {
+        var bindings = ControllerProfile.starterTerminal.bindings
+        bindings[.micButton] = .hold(KeyStroke(key: .space, modifiers: [.control, .option]))
+        return bindings
+    }()
 
     private struct Harness {
         let bridge: ControllerBridge
@@ -41,7 +46,7 @@ struct StickNavigationBridgeTests {
         let pointerSink = RecordingPointerSink()
         let profile = ControllerProfile(
             name: "test",
-            bindings: ControllerProfile.starterTerminal.bindings,
+            bindings: Self.testBindings,
             navigation: Self.settings
         )
         let bridge = ControllerBridge(
@@ -123,11 +128,11 @@ struct StickNavigationBridgeTests {
         harness.bridge.handle(.connected(harness.input.controller))
 
         harness.bridge.handle(harness.input.stick(.right, x: 1, y: 0))
-        harness.bridge.handle(harness.input.press(.l2))
+        harness.bridge.handle(harness.input.press(.micButton))
         harness.tick(2)
         harness.bridge.handle(harness.input.press(.cross))
         harness.tick(2)
-        harness.bridge.handle(harness.input.release(.l2))
+        harness.bridge.handle(harness.input.release(.micButton))
 
         #expect(harness.pointer.emissions.count == 4)
         #expect(
@@ -143,7 +148,7 @@ struct StickNavigationBridgeTests {
     func motionDoesNotReleaseHeldKeys() {
         var harness = makeHarness()
 
-        harness.bridge.handle(harness.input.press(.l2))
+        harness.bridge.handle(harness.input.press(.micButton))
         harness.bridge.handle(harness.input.stick(.left, x: 0, y: -1))
         harness.tick(3)
 

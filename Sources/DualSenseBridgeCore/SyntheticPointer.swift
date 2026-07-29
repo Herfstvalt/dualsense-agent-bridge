@@ -114,6 +114,7 @@ public final class SyntheticPointer {
     private let accessibility: AccessibilityCapability
     private var pointerRemainder = Remainder()
     private var scrollRemainder = Remainder()
+    private var leftButtonIsDown = false
     private var rightButtonIsDown = false
 
     public init(sink: any PointerSink, accessibility: AccessibilityCapability) {
@@ -165,22 +166,37 @@ public final class SyntheticPointer {
 
     // MARK: - Buttons
 
+    /// Whether the left button is physically down as far as this boundary knows.
+    public var isLeftButtonDown: Bool { leftButtonIsDown }
+
     /// Whether the right button is physically down as far as this boundary knows.
     public var isRightButtonDown: Bool { rightButtonIsDown }
 
     @discardableResult
     public func perform(_ action: PointerButtonAction) -> PointerButtonOutcome {
         switch action {
+        case .pressLeftButton:
+            let report = accessibilityReport
+            guard report.isUsable else { return .refused(reason: report.headline) }
+            return setButton(.left, down: true)
+        case .releaseLeftButton:
+            // Never refused: a button that is already down must come back up.
+            return setButton(.left, down: false)
         case .pressRightButton:
             let report = accessibilityReport
             guard report.isUsable else { return .refused(reason: report.headline) }
-            return setRightButton(down: true)
+            return setButton(.right, down: true)
         case .releaseRightButton:
             // Never refused: a button that is already down must come back up.
-            return setRightButton(down: false)
+            return setButton(.right, down: false)
         case .releaseAllPointerButtons:
-            guard rightButtonIsDown else { return .noOutput }
-            return setRightButton(down: false)
+            let left = setButton(.left, down: false)
+            let right = setButton(.right, down: false)
+            if case .failed = left { return left }
+            if case .failed = right { return right }
+            if case .emitted = left { return .emitted }
+            if case .emitted = right { return .emitted }
+            return .noOutput
         }
     }
 
@@ -190,28 +206,40 @@ public final class SyntheticPointer {
     /// the bookkeeping is cleared either way, because refusing the release would
     /// latch a mouse button on the user's machine.
     public func releaseAllPointerButtons() {
-        guard rightButtonIsDown else { return }
-        _ = setRightButton(down: false)
+        _ = setButton(.left, down: false)
+        _ = setButton(.right, down: false)
     }
 
-    private func setRightButton(down: Bool) -> PointerButtonOutcome {
-        guard rightButtonIsDown != down else { return .noOutput }
+    private func setButton(_ button: PointerButton, down: Bool) -> PointerButtonOutcome {
+        let isDown: Bool
+        switch button {
+        case .left: isDown = leftButtonIsDown
+        case .right: isDown = rightButtonIsDown
+        }
+        guard isDown != down else { return .noOutput }
 
         // Bookkeeping is settled before the sink is asked, and any failure settles
         // it to "not down" whichever direction was attempted. Both mistakes are
         // bad in their own way: believing a failed press succeeded makes the next
-        // press a no-op, so R2 stays dead for the rest of the session, while
+        // press a no-op, so that button stays dead for the rest of the session, while
         // believing a failed release left the button down keeps promoting every
         // stick push to a drag event for a button nobody is holding.
-        rightButtonIsDown = down
+        switch button {
+        case .left: leftButtonIsDown = down
+        case .right: rightButtonIsDown = down
+        }
         do {
-            if down {
-                try sink.pressRightButton()
-            } else {
-                try sink.releaseRightButton()
+            switch (button, down) {
+            case (.left, true): try sink.pressLeftButton()
+            case (.left, false): try sink.releaseLeftButton()
+            case (.right, true): try sink.pressRightButton()
+            case (.right, false): try sink.releaseRightButton()
             }
         } catch {
-            rightButtonIsDown = false
+            switch button {
+            case .left: leftButtonIsDown = false
+            case .right: rightButtonIsDown = false
+            }
             return .failed(reason: Self.sinkFailureReason)
         }
         return .emitted

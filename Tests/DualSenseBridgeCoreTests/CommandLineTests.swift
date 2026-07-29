@@ -148,9 +148,11 @@ struct CommandLineTests {
     func controlsListingExplainsReservedControls() {
         let listing = BridgeCommand.controlsText
 
-        // A user who binds r2 and sees the right button move anyway needs to be
-        // told why, and this listing is where they will look for control names.
+        // A user who binds a trigger and sees a mouse button move anyway needs
+        // to be told why; this is where they will look for control names.
         #expect(listing.contains("r2"))
+        #expect(listing.contains("l2"))
+        #expect(listing.lowercased().contains("left mouse button"))
         #expect(listing.lowercased().contains("right mouse button"))
         #expect(listing.lowercased().contains("mic"))
     }

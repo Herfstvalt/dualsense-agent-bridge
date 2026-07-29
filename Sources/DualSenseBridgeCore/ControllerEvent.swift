@@ -77,6 +77,8 @@ public enum ControllerInput: Hashable, Sendable {
     /// says where the stick *is*, not that something happened, because a held
     /// stick keeps steering long after its last sample.
     case axis(ControllerAxisEvent)
+    /// A finger began, moved, or ended on the DualSense touch surface.
+    case touchpad(ControllerTouchpadEvent)
     /// The bridge itself is stopping.
     case shutdown
 
@@ -88,6 +90,8 @@ public enum ControllerInput: Hashable, Sendable {
         case .button(let event):
             event.controller
         case .axis(let event):
+            event.controller
+        case .touchpad(let event):
             event.controller
         case .shutdown:
             nil

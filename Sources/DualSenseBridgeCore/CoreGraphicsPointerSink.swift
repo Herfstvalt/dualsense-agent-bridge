@@ -35,12 +35,14 @@ public final class CoreGraphicsPointerSink: PointerSink {
     }
 
     private let tapLocation: CGEventTapLocation
-    /// Whether *this* sink has successfully posted a right-button-down that has
+    /// Whether *this* sink has successfully posted a left-button-down that has
     /// not yet been released.
     ///
-    /// Tracked here, rather than trusted from above, because a `rightMouseDragged`
-    /// with no preceding `rightMouseDown` is a malformed gesture that applications
-    /// interpret unpredictably. Only a posted down may promote a move to a drag.
+    /// Tracked here, rather than trusted from above, because a dragged event with
+    /// no matching mouse-down is malformed. Only a posted down may promote a move
+    /// to that button's drag event.
+    private var leftButtonIsDown = false
+    /// Whether a right-button-down is currently active.
     private var rightButtonIsDown = false
 
     public init(tapLocation: CGEventTapLocation = .cghidEventTap) {
@@ -48,26 +50,38 @@ public final class CoreGraphicsPointerSink: PointerSink {
     }
 
     public func moveCursor(dx: Int, dy: Int) throws {
-        if rightButtonIsDown {
+        if leftButtonIsDown {
+            try move(dx: dx, dy: dy, as: .leftMouseDragged, button: .left)
+        } else if rightButtonIsDown {
             try move(dx: dx, dy: dy, as: .rightMouseDragged, button: .right)
         } else {
             try move(dx: dx, dy: dy, as: .mouseMoved, button: .left)
         }
     }
 
-    public func pressRightButton() throws {
+    public func pressLeftButton() throws {
         // Set only after the event is actually posted: a failed down must not
         // leave later movement pretending to drag.
-        try postAtCurrentPosition(.rightMouseDown)
+        try postAtCurrentPosition(.leftMouseDown, button: .left)
+        leftButtonIsDown = true
+    }
+
+    public func releaseLeftButton() throws {
+        // Cleared first, and whatever happens next: if posting the up fails there
+        // is nothing this sink can do about the physical button, and continuing to
+        // emit drag events would make it worse.
+        leftButtonIsDown = false
+        try postAtCurrentPosition(.leftMouseUp, button: .left)
+    }
+
+    public func pressRightButton() throws {
+        try postAtCurrentPosition(.rightMouseDown, button: .right)
         rightButtonIsDown = true
     }
 
     public func releaseRightButton() throws {
-        // Cleared first, and whatever happens next: if posting the up fails there
-        // is nothing this sink can do about the physical button, and continuing to
-        // emit drag events would make it worse.
         rightButtonIsDown = false
-        try postAtCurrentPosition(.rightMouseUp)
+        try postAtCurrentPosition(.rightMouseUp, button: .right)
     }
 
     /// Applies a relative delta by reading the cursor, clamping, and posting an
@@ -85,11 +99,11 @@ public final class CoreGraphicsPointerSink: PointerSink {
 
     /// Posts an event where the cursor already is, for transitions that must not
     /// move it.
-    private func postAtCurrentPosition(_ type: CGEventType) throws {
+    private func postAtCurrentPosition(_ type: CGEventType, button: CGMouseButton) throws {
         guard let current = CGEvent(source: nil)?.location else {
             throw Failure.cursorPositionUnavailable
         }
-        try post(type, at: current, button: .right)
+        try post(type, at: current, button: button)
     }
 
     private func post(_ type: CGEventType, at position: CGPoint, button: CGMouseButton) throws {

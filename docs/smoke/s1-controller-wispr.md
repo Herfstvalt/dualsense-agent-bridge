@@ -18,9 +18,10 @@ transcripts, credentials, or absolute home paths into the results.
 ## Prerequisites
 
 - [ ] A DualSense controller paired over Bluetooth or connected by USB.
-- [ ] Wispr Flow installed and running, with its dictation shortcut set to the
-      same keys as the `hold` binding reported by `dualsense-bridge doctor`
-      (starter profile: `control+option+space`).
+- [ ] Wispr Flow installed and running, with its toggle shortcut set to Ctrl-S
+      for the active starter profile. To smoke-test press-to-talk as well, use a
+      custom profile that assigns `hold control+option+space` to an unreserved
+      control and configure Wispr Flow to the same chord.
 - [ ] Accessibility permission granted to the terminal app that will run the
       bridge (System Settings > Privacy & Security > Accessibility).
 - [ ] A scratch text field available for the dictation-toggle test. Never
@@ -60,28 +61,27 @@ transcripts, credentials, or absolute home paths into the results.
       not frontmost.
 - [x] Connect the controller. A `connected` line appears.
 - [ ] Press each bound control once and confirm the printed control name
-      matches the physical button: `cross`, `circle`, `r3`, and the hold
-      control (`l2` in the starter profile). Do this while the bridge's own
+      matches the physical button: Cross, Circle, Square, Triangle, R3, the
+      shoulders, D-pad, touchpad click, R2, and L2. Do this while the bridge's own
       terminal is **not** frontmost, which is the way it will actually be used.
 - [ ] Confirm the DualSense mic button produces no binding output; it should
       keep its hardware mute behavior.
 
-## 3. Wispr Flow press-to-talk
+## 3. Wispr Flow toggle and optional press-to-talk
 
 Run `dualsense-bridge run` (not dry-run) with focus in a text field.
 
-- [ ] Hold the hold control. Wispr Flow starts dictating.
-- [ ] Speak a short phrase and keep holding. Dictation continues.
-- [ ] Release the control. Wispr Flow stops dictating and the transcript is
-      inserted. Recording does not continue after release.
-- [ ] Repeat three times in quick succession. No stuck modifier: typing a
-      normal character afterwards produces that character, not a shortcut.
+- [ ] Press R3. Wispr Flow starts dictating through its Ctrl-S toggle.
+- [ ] Speak a short phrase, then press R3 again. Dictation stops and the
+      transcript is inserted.
+- [ ] If a custom `hold` binding was prepared, hold it, speak, and release it.
+      Wispr starts and stops on the physical edges with no stuck modifier.
 
 ## 4. Terminal actions
 
 With focus in a real terminal running an interactive agent session:
 
-- [ ] Dictate a short prompt with the hold control, then press Cross. The
+- [ ] Dictate a short prompt with R3 (or a configured hold control), then press Cross. The
       message is submitted, exactly as pressing Return would.
 - [ ] Start a new dictation and press Circle. The dictation/prompt is
       cancelled, matching Escape.
@@ -94,17 +94,17 @@ With focus in a real terminal running an interactive agent session:
 Cleanup is never gated on Accessibility permission, so these cases must hold
 even if permission is revoked mid-hold.
 
-- [ ] While holding the hold control, turn the controller off (or unplug it).
+- [ ] With a custom hold binding active, turn the controller off (or unplug it).
       The bridge logs a disconnect and the held shortcut is released: Wispr
       Flow stops and no modifier stays latched.
-- [ ] While holding the hold control, press Control-C in the bridge terminal.
+- [ ] While holding that custom control, press Control-C in the bridge terminal.
       The bridge shuts down and reports that all synthetic keys were released.
-- [ ] While holding the hold control, `kill` the bridge process. Same result.
+- [ ] While holding that custom control, `kill` the bridge process. Same result.
 - [ ] After each of the three cases, type in a normal text field and confirm
       plain characters appear, proving no modifier is stuck.
 - [ ] Reconnect the controller and confirm input works again without a stuck
       hold from the previous session.
-- [ ] While holding the hold control, revoke Accessibility permission and then
+- [ ] While holding that custom control, revoke Accessibility permission and then
       release the control. The key still comes up: typing afterwards produces
       plain characters.
 

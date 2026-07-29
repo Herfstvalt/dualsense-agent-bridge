@@ -53,14 +53,20 @@ struct ControllerEventTests {
 
 @Suite("profiles are versioned, validated, and safe by default")
 struct ControllerProfileTests {
-    @Test("the starter profile binds Wispr hold, Enter, Escape, and the Wispr toggle")
+    @Test("the starter profile binds terminal controls, Wispr toggle, and face-button fallbacks")
     func starterProfileBindings() throws {
         let profile = ControllerProfile.starterTerminal
 
         #expect(profile.schemaVersion == ControllerProfile.currentSchemaVersion)
-        #expect(profile.binding(for: .l2) == .hold(try KeyStroke(parsing: "control+option+space")))
+        #expect(profile.binding(for: .l2) == nil)
+        #expect(profile.binding(for: .r2) == nil)
         #expect(profile.binding(for: .cross) == .tap(KeyStroke(key: .return)))
         #expect(profile.binding(for: .circle) == .tap(KeyStroke(key: .escape)))
+        #expect(profile.binding(for: .square) == .tap(KeyStroke(key: .delete)))
+        #expect(
+            profile.binding(for: .triangle)
+                == .tap(KeyStroke(key: .f5, modifiers: [.option, .command]))
+        )
         #expect(profile.binding(for: .r3) == .tap(KeyStroke(key: .s, modifiers: .control)))
     }
 
@@ -83,25 +89,24 @@ struct ControllerProfileTests {
         #expect(profile.binding(for: .dpadDown) == .tap(KeyStroke(key: .arrowDown)))
     }
 
-    @Test("the starter profile leaves the mic button, Square, and Triangle alone")
+    @Test("the starter profile leaves the mic button and both pointer triggers out of keyboard routing")
     func reservedControlsAreUnbound() {
         let profile = ControllerProfile.starterTerminal
 
-        // The mic button keeps its hardware mute; Square and Triangle are left
-        // free on purpose so there is somewhere obvious to add a personal binding.
+        // The mic button keeps its hardware mute; the pointer boundary owns R2/L2.
         #expect(profile.binding(for: .micButton) == nil)
-        #expect(profile.binding(for: .square) == nil)
-        #expect(profile.binding(for: .triangle) == nil)
+        #expect(profile.binding(for: .r2) == nil)
+        #expect(profile.binding(for: .l2) == nil)
     }
 
     @Test("the starter profile binds exactly the controls the map names")
     func starterProfileBindsNothingElse() {
         let bound = Set(ControllerProfile.starterTerminal.bindings.keys)
 
-        // R2 is absent because the pointer owns it, not the keyboard.
+        // Both triggers are absent because the pointer owns them, not the keyboard.
         #expect(
             bound == [
-                .l2, .cross, .circle, .r3, .r1, .l1, .l3,
+                .cross, .circle, .square, .triangle, .r3, .r1, .l1, .l3,
                 .touchpadButton, .dpadUp, .dpadDown,
             ]
         )
@@ -116,13 +121,16 @@ struct ControllerProfileTests {
         #expect(decoded == ControllerProfile.starterTerminal)
     }
 
-    @Test("the starter profile binds no destructive action")
-    func noDestructiveBindings() {
-        // Flattened, so every step of a tap sequence is checked and not just its
-        // first keystroke.
-        let strokes = ControllerProfile.starterTerminal.bindings.values.flatMap(\.strokes)
-        #expect(!strokes.contains(where: { $0.modifiers.contains(.command) }))
-        #expect(strokes.allSatisfy { $0.key != .delete && $0.key != .forwardDelete })
+    @Test("the only editing and Command shortcuts are the requested Square and Triangle actions")
+    func elevatedBindingsAreExplicit() {
+        let profile = ControllerProfile.starterTerminal
+
+        #expect(profile.binding(for: .square) == .tap(KeyStroke(key: .delete)))
+        #expect(
+            profile.bindings
+                .filter { $0.value.strokes.contains { $0.modifiers.contains(.command) } }
+                .map(\.key) == [.triangle]
+        )
     }
 
     @Test("the push-to-talk shortcut can be replaced without recompiling")
@@ -149,7 +157,8 @@ struct ControllerProfileTests {
         let encoded = try ControllerProfile.starterTerminal.encodedJSON()
         let text = String(decoding: encoded, as: UTF8.self)
         #expect(text.contains(#""cross""#))
-        #expect(text.contains(#""control+option+space""#))
+        #expect(text.contains(#""square""#))
+        #expect(text.contains(#""option+command+f5""#))
         #expect(try ControllerProfile(decodingJSON: encoded) == ControllerProfile.starterTerminal)
     }
 
@@ -220,7 +229,8 @@ struct ControllerProfileTests {
     func profileSummary() {
         let summary = ControllerProfile.starterTerminal.summaryLines
         #expect(summary.contains("cross -> tap return"))
-        #expect(summary.contains("l2 -> hold control+option+space"))
+        #expect(summary.contains("square -> tap delete"))
+        #expect(summary.contains("triangle -> tap option+command+f5"))
         #expect(summary.contains("r3 -> tap control+s"))
         // A sequence has to be readable here too, or the CLI cannot explain what
         // a shoulder button will actually send.
