@@ -78,7 +78,7 @@ public final class GameControllerEventSource {
 
         // Order matters. Background monitoring must be on before any controller
         // is observed, attached, or discovered: a controller that attaches while
-        // it is off delivers no input at all.
+        // background monitoring is off delivers no input at all.
         enableBackgroundEvents()
         observeConnections()
         synchronizeControllers()
@@ -113,10 +113,10 @@ public final class GameControllerEventSource {
 
     /// Allows controller input while this process is in the background.
     ///
-    /// A bridge started over SSH, from a background terminal, or from a tmux
-    /// window is never the frontmost application. Since macOS 11.3 that means
-    /// GameController drops every button event unless this is enabled, which
-    /// looks exactly like a controller that connects and then does nothing.
+    /// The bridge normally stays behind the target terminal or text field.
+    /// Since macOS 11.3, GameController drops every button event for a process
+    /// that is not frontmost unless this is enabled, which looks exactly like a
+    /// controller that connects and then does nothing.
     private func enableBackgroundEvents() {
         guard !host.monitorsBackgroundEvents else { return }
         // Only remember a value this source is responsible for putting back.

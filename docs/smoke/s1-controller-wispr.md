@@ -20,10 +20,12 @@ transcripts, credentials, or absolute home paths into the results.
       bridge (System Settings > Privacy & Security > Accessibility).
 - [ ] A scratch directory and a long-running command available for the
       interrupt test. Never smoke-test against a session doing real work.
-- [ ] The bridge running in its own terminal window (or a background tmux
-      window), so focus can stay on the target session. Synthetic keys go to
-      the focused window; if the bridge's terminal has focus, Cross and R3 act
-      on the bridge's terminal instead of the agent session.
+- [ ] The bridge running in its own terminal inside the logged-in macOS GUI
+      session, so focus can stay on the target session. Do not launch the bridge
+      from a plain SSH login: it can discover the controller there but does not
+      reliably receive HID input. The target terminal may itself be connected
+      over SSH. Synthetic keys go to the focused window; if the bridge's
+      terminal has focus, Cross and R3 act on that terminal instead.
 
 ## 0. Baseline without hardware
 
@@ -46,13 +48,12 @@ transcripts, credentials, or absolute home paths into the results.
 
 ## 2. Controller recognition
 
-- [ ] Start `dualsense-bridge run --dry-run` and confirm it prints
+- [x] Start `dualsense-bridge run --dry-run` and confirm it prints
       `Background controller events: enabled`. If it prints `DISABLED`, stop:
       the controller will connect and every press will be dropped, because
       macOS 11.3 and newer withhold controller input from processes that are
-      not frontmost. This is the failure mode found on the first hardware run
-      over SSH.
-- [ ] Connect the controller. A `connected` line appears.
+      not frontmost.
+- [x] Connect the controller. A `connected` line appears.
 - [ ] Press each bound control once and confirm the printed control name
       matches the physical button: `cross`, `circle`, `r3`, and the hold
       control (`l2` in the starter profile). Do this while the bridge's own
@@ -128,9 +129,9 @@ even if permission is revoked mid-hold.
 | --- | --- | --- |
 | 0. Baseline without hardware | pass | `swift test` (122 tests) and a clean release build pass with no warnings; `doctor`, `profile --starter`, `controls`, and `run --dry-run` verified, including the background-events line and clean shutdown on signal. |
 | 1. Permission boundary | pending | Needs a machine where Accessibility can be toggled for the host terminal. |
-| 2. Controller recognition | pending | First hardware run over SSH connected the controller but produced no button events; background controller monitoring is now enabled before discovery and `run` prints its state. Needs a repeat run on the controller machine. |
-| 3. Wispr Flow press-to-talk | pending | Wispr Flow not installed in the implementation environment. |
-| 4. Terminal actions | pending | Requires a connected controller. |
+| 2. Controller recognition | partial | A plain SSH launch discovered the controller but received no HID events. Re-running in the logged-in iTerm GUI session connected successfully and logged Cross, Circle, L2 press/release, face buttons, shoulders, D-pad, PS, and Options. R3 and the unbound mic button still need an explicit repeat. |
+| 3. Wispr Flow press-to-talk | pending | Wispr Flow is installed and running on the hardware-test Mac; real shortcut activation and dictation remain unverified. |
+| 4. Terminal actions | pending | Cross→Return and Circle→Escape passed in dry-run; real synthetic output and R3→Ctrl-C remain unverified. |
 | 5. Interruption and cleanup | pending | Requires a connected controller; automated coverage exists for disconnect and shutdown release. |
 | 6. Configuration | pending | Profile validation is covered by automated tests; the live Wispr shortcut change is not. |
 

@@ -46,10 +46,11 @@ revoked while a chord is down.
 ### Run it in its own terminal
 
 The bridge emits ordinary keyboard events, so they land in whatever window has
-focus. Start it in a separate terminal window, a background tmux window, or with
-`&`, then focus the agent session or text field you actually want to control.
-If the bridge's own terminal is focused, Cross and R3 will act on that terminal
-instead.
+focus. Start it from a terminal inside the Mac's logged-in GUI session, then
+leave that window in the background and focus the local or SSH-backed agent
+session you actually want to control. A bridge process launched by a plain SSH
+login can discover a controller but does not reliably receive its HID input. If
+the bridge's own terminal is focused, Cross and R3 act on that terminal instead.
 
 Because of that, the bridge is almost never the frontmost application, and since
 macOS 11.3 GameController drops controller input for processes that are not
@@ -119,4 +120,3 @@ paste real session output or credentials into issues, fixtures, or logs.
 ## License
 
 MIT. See [LICENSE](LICENSE).
-
