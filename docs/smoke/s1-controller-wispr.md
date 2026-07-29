@@ -126,7 +126,7 @@ even if permission is revoked mid-hold.
 
 | Section | Status | Notes |
 | --- | --- | --- |
-| 0. Baseline without hardware | pass | `swift test` (97 tests) and `swift build` pass; `doctor`, `profile`, `controls`, and `run --dry-run` verified, including clean shutdown on signal. |
+| 0. Baseline without hardware | pass | `swift test` (122 tests) and a clean release build pass with no warnings; `doctor`, `profile --starter`, `controls`, and `run --dry-run` verified, including the background-events line and clean shutdown on signal. |
 | 1. Permission boundary | pending | Needs a machine where Accessibility can be toggled for the host terminal. |
 | 2. Controller recognition | pending | First hardware run over SSH connected the controller but produced no button events; background controller monitoring is now enabled before discovery and `run` prints its state. Needs a repeat run on the controller machine. |
 | 3. Wispr Flow press-to-talk | pending | Wispr Flow not installed in the implementation environment. |

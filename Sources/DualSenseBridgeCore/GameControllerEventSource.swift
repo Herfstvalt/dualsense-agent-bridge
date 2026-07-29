@@ -2,25 +2,37 @@
 import Foundation
 import GameController
 
+/// The process-global GameController operations the event source depends on.
+///
+/// Only global state is behind this seam, so a test can prove that background
+/// monitoring is enabled before discovery starts without a paired controller.
+@MainActor
+protocol ControllerDiscoveryHost: AnyObject {
+    /// Whether controller input is delivered while this process is not the
+    /// frontmost application.
+    var monitorsBackgroundEvents: Bool { get set }
+
+    func startDiscovery()
+    func stopDiscovery()
+}
+
 /// The real GameController global state.
 ///
 /// `shouldMonitorBackgroundEvents` is a class property that defaults to false on
 /// macOS 11.3 and newer whenever the process is not frontmost, so a CLI bridge
 /// has to opt in explicitly.
 @MainActor
-public final class GameControllerDiscoveryHost: ControllerDiscoveryHost {
-    public init() {}
-
-    public var monitorsBackgroundEvents: Bool {
+final class GameControllerDiscoveryHost: ControllerDiscoveryHost {
+    var monitorsBackgroundEvents: Bool {
         get { GCController.shouldMonitorBackgroundEvents }
         set { GCController.shouldMonitorBackgroundEvents = newValue }
     }
 
-    public func startDiscovery() {
+    func startDiscovery() {
         GCController.startWirelessControllerDiscovery()
     }
 
-    public func stopDiscovery() {
+    func stopDiscovery() {
         GCController.stopWirelessControllerDiscovery()
     }
 }
@@ -42,35 +54,46 @@ public final class GameControllerEventSource {
     private var observers: [any NSObjectProtocol] = []
     private var identities: [ObjectIdentifier: ControllerIdentity] = [:]
     private var nextIndex = 1
+    private var isStarted = false
     /// The background-monitoring value to put back on stop, when this source is
     /// the one that changed it.
     private var backgroundEventSettingToRestore: Bool?
-    /// The startup steps this source actually performed, in order.
-    public private(set) var startupSteps: [ControllerSourceStartupStep] = []
 
-    public init(host: any ControllerDiscoveryHost = GameControllerDiscoveryHost()) {
+    public convenience init() {
+        self.init(host: GameControllerDiscoveryHost())
+    }
+
+    init(host: any ControllerDiscoveryHost) {
         self.host = host
     }
 
     /// Starts observing connections and button transitions.
     ///
-    /// Steps run in `ControllerSourceStartupPlan` order so background monitoring
-    /// is enabled before any controller is observed, attached, or discovered.
+    /// Calling this while already started does nothing, so notification
+    /// observers and discovery are never installed twice.
     public func start(handler: @escaping Handler) {
+        guard !isStarted else { return }
+        isStarted = true
         self.handler = handler
-        startupSteps.removeAll()
 
-        for step in ControllerSourceStartupPlan.steps {
-            perform(step)
-            startupSteps.append(step)
-        }
+        // Order matters. Background monitoring must be on before any controller
+        // is observed, attached, or discovered: a controller that attaches while
+        // it is off delivers no input at all.
+        enableBackgroundEvents()
+        observeConnections()
+        synchronizeControllers()
+        host.startDiscovery()
     }
 
     /// Stops observing and puts back any process-global state it changed.
     ///
-    /// Callers are still responsible for shutting the bridge down so held keys
-    /// are released.
+    /// Does nothing if the source was never started, so there is nothing to
+    /// undo. Callers are still responsible for shutting the bridge down so held
+    /// keys are released.
     public func stop() {
+        guard isStarted else { return }
+        isStarted = false
+
         host.stopDiscovery()
         restoreBackgroundEvents()
 
@@ -84,23 +107,9 @@ public final class GameControllerEventSource {
         }
         identities.removeAll()
         handler = nil
-        startupSteps.removeAll()
     }
 
-    // MARK: - Startup steps
-
-    private func perform(_ step: ControllerSourceStartupStep) {
-        switch step {
-        case .enableBackgroundEvents:
-            enableBackgroundEvents()
-        case .observeConnections:
-            observeConnections()
-        case .attachExistingControllers:
-            synchronizeControllers()
-        case .startWirelessDiscovery:
-            host.startDiscovery()
-        }
-    }
+    // MARK: - Background events
 
     /// Allows controller input while this process is in the background.
     ///
