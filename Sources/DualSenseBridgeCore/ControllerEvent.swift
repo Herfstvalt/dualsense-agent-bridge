@@ -73,6 +73,10 @@ public enum ControllerInput: Hashable, Sendable {
     case connected(ControllerIdentity)
     case disconnected(ControllerIdentity)
     case button(ControllerEvent)
+    /// A thumbstick moved to a new normalized position. Unlike a button, this
+    /// says where the stick *is*, not that something happened, because a held
+    /// stick keeps steering long after its last sample.
+    case axis(ControllerAxisEvent)
     /// The bridge itself is stopping.
     case shutdown
 
@@ -82,6 +86,8 @@ public enum ControllerInput: Hashable, Sendable {
         case .connected(let controller), .disconnected(let controller):
             controller
         case .button(let event):
+            event.controller
+        case .axis(let event):
             event.controller
         case .shutdown:
             nil

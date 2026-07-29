@@ -19,6 +19,21 @@ struct FakeControllerInput {
         event(control, .released)
     }
 
+    /// A thumbstick resting at a normalized position, with `y` positive up
+    /// exactly as a gamepad reports it.
+    mutating func stick(_ stick: ControllerStick, x: Double, y: Double) -> ControllerInput {
+        clock += 0.01
+        return .axis(
+            ControllerAxisEvent(
+                controller: controller,
+                stick: stick,
+                position: StickVector(x: x, y: y),
+                timestamp: clock,
+                source: .fake
+            )
+        )
+    }
+
     mutating func event(_ control: ControllerControl, _ phase: ControllerEventPhase) -> ControllerInput {
         clock += 0.01
         return .button(

@@ -10,7 +10,7 @@ sessions usable from a controller plus Wispr Flow:
 - Cross sends Enter and Circle cancels;
 - R3 interrupts the focused session with Ctrl-C;
 - the D-pad changes the active tmux session;
-- the sticks can become mouse/scroll controls;
+- the right stick moves the pointer and the left stick scrolls;
 - the latest safe response can be spoken locally with macOS `say`.
 
 This is an early, macOS-first open-source project. The first milestone favors
@@ -74,8 +74,52 @@ previous value back when it stops.
 | `circle` | tap | `escape` |
 | `r3` | tap | `control+c` |
 
+| Stick | Action | Defaults |
+| --- | --- | --- |
+| right | move the pointer | deadzone 0.15, curve 2.0, 700 px/s |
+| left | scroll | deadzone 0.2, curve 2.0, 500 px/s |
+
 The DualSense mic button is intentionally left unbound so it keeps its hardware
 mute behavior.
+
+### Stick navigation
+
+The right stick moves the macOS pointer and the left stick scrolls the focused
+view, both continuously while the stick is held. No stick or button emits mouse
+*clicks*: this bridge can point and scroll, but it cannot click, drag, or select
+by accident.
+
+Four knobs shape the feel, per stick, and none of them needs a rebuild:
+
+| Setting | Meaning |
+| --- | --- |
+| `deadzone` | Deflection below this does nothing, so a worn stick cannot drift the cursor. |
+| `responseExponent` | 1 is linear; higher values make small pushes finer while full deflection still reaches full speed. |
+| `speed` | Pixels per second at full deflection. |
+| `invertX` / `invertY` | Flip an axis if it feels backwards on your setup. |
+
+Two more values apply to both sticks: `tickInterval`, how often motion is
+recomputed, and `maximumTickInterval`, the most travel a single tick may account
+for. That clamp is what stops a stalled or suspended process from flinging the
+cursor across the screen when it resumes.
+
+Motion is driven by a clock, not by stick callbacks. A gamepad reports a stick
+only when its value *changes*, so a stick held at full deflection goes quiet after
+one report; anything driven by callbacks alone would twitch once and stop.
+Releasing the stick stops output on the next tick, and a disconnect, a profile
+change, or shutdown stops it immediately.
+
+`run --dry-run` reports motion as periodic summaries rather than one line per
+tick, which is what makes it usable for tuning:
+
+```text
+  mouse dx=+318 dy=-96 over 0.50s (61 samples)
+  scroll dx=+0 dy=-140 over 0.50s (61 samples)
+```
+
+Both pointer and scroll output need the same Accessibility permission as the
+keyboard, and it is re-read per event: revoking it mid-motion stops the cursor
+rather than latching it.
 
 Set the Wispr Flow dictation shortcut to the same keys as the `hold` binding.
 Any unique chord built from `control`, `option`, `shift`, and `command` plus one
@@ -97,9 +141,27 @@ mv /tmp/dualsense-profile.json ~/.config/dualsense-bridge/profile.json
 
 Edit that file, then run `dualsense-bridge doctor` to validate it. A profile is
 versioned (`schemaVersion`) and validated strictly: an unknown control name,
-unknown binding kind, or unparseable shortcut is refused with a message instead
-of being silently ignored, so a typo cannot quietly disable the interrupt
-binding. Use `--profile <path>` to load a profile from another location.
+unknown binding kind, unparseable shortcut, or out-of-range navigation value is
+refused with a message instead of being silently ignored, so a typo cannot
+quietly disable the interrupt binding or hand the cursor an absurd speed. Use
+`--profile <path>` to load a profile from another location.
+
+Schema version 2 adds the `navigation` section. Version 1 profiles — bindings
+only — still load and simply get the default navigation settings, so upgrading
+the bridge never invalidates a mapping you already tuned. Inside `navigation`
+every field is optional, so an experiment can be two lines:
+
+```json
+{
+  "schemaVersion": 2,
+  "name": "slower-pointer",
+  "bindings": { "cross": { "kind": "tap", "keys": "return" } },
+  "navigation": { "pointer": { "speed": 400 } }
+}
+```
+
+`doctor` and `run` both print the navigation values actually in effect, which is
+how you confirm the file you edited is the file being used.
 
 ## Development
 
@@ -108,13 +170,16 @@ swift test
 swift build
 ```
 
-Behavior is tested through a fake input source and a fake keyboard sink, so
-press/release ordering, duplicate and out-of-order events, held-key cleanup on
-disconnect and shutdown, and the Accessibility refusal path all run without a
-controller attached.
+Behavior is tested through a fake input source, a fake keyboard sink, and a fake
+pointer sink, so press/release ordering, duplicate and out-of-order events,
+held-key cleanup on disconnect and shutdown, deadzone/clamp/curve arithmetic,
+continuous motion from a held stick, and the Accessibility refusal path all run
+without a controller attached. The navigation engine takes its clock as an
+argument, so a test advances time by hand and asserts exact pixel deltas.
 
 Hardware checks live in
-[docs/smoke/s1-controller-wispr.md](docs/smoke/s1-controller-wispr.md). Do not
+[docs/smoke/s1-controller-wispr.md](docs/smoke/s1-controller-wispr.md) and
+[docs/smoke/s4-stick-navigation.md](docs/smoke/s4-stick-navigation.md). Do not
 paste real session output or credentials into issues, fixtures, or logs.
 
 ## License

@@ -59,6 +59,11 @@ public struct ActionRouter: Sendable {
         switch input {
         case .button(let event):
             return handle(event)
+        case .axis:
+            // Stick axes never produce keyboard intent. They are navigation, and
+            // the navigation engine owns them, so a stick can be held through a
+            // dictation hold without disturbing it.
+            return []
         case .connected(let controller):
             // A reconnect can never inherit holds from a previous session. This
             // is scoped rather than global precisely because it does not sweep.

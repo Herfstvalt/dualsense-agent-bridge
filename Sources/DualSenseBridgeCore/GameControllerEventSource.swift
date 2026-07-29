@@ -215,6 +215,17 @@ public final class GameControllerEventSource {
             }
         }
 
+        // Thumbsticks report only when their value *changes*, so a stick held at
+        // full deflection goes quiet after one callback. These handlers therefore
+        // report position, and the navigation tick supplies the motion.
+        for (stick, pad) in Self.mappedSticks(of: gamepad) {
+            pad.valueChangedHandler = { [weak self] _, x, y in
+                MainActor.assumeIsolated {
+                    self?.emit(stick, x: Double(x), y: Double(y), from: identity)
+                }
+            }
+        }
+
         handler?(.connected(identity))
     }
 
@@ -223,6 +234,23 @@ public final class GameControllerEventSource {
         for (_, button) in Self.mappedButtons(of: gamepad) {
             button.pressedChangedHandler = nil
         }
+        for (_, pad) in Self.mappedSticks(of: gamepad) {
+            pad.valueChangedHandler = nil
+        }
+    }
+
+    private func emit(_ stick: ControllerStick, x: Double, y: Double, from identity: ControllerIdentity) {
+        handler?(
+            .axis(
+                ControllerAxisEvent(
+                    controller: identity,
+                    stick: stick,
+                    position: StickVector(x: x, y: y),
+                    timestamp: ProcessInfo.processInfo.systemUptime,
+                    source: .gameController
+                )
+            )
+        )
     }
 
     private func emit(_ control: ControllerControl, pressed: Bool, from identity: ControllerIdentity) {
@@ -277,6 +305,15 @@ public final class GameControllerEventSource {
         }
 
         return buttons
+    }
+
+    private static func mappedSticks(
+        of gamepad: GCExtendedGamepad
+    ) -> [(ControllerStick, GCControllerDirectionPad)] {
+        [
+            (.left, gamepad.leftThumbstick),
+            (.right, gamepad.rightThumbstick),
+        ]
     }
 }
 #endif

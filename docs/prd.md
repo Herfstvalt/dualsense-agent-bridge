@@ -208,6 +208,23 @@ Suggested labels: `enhancement`, `needs-triage`, `ui/ux`,
 
 Status: Created in #5; PR / merge commit to be recorded.
 
+Deferred out of the first S4 implementation, deliberately rather than by
+omission:
+
+- **Profile and layer switching from the controller.** Navigation settings are
+  persisted and validated in the profile, and a profile swap already stops all
+  motion safely, but there is no controller-driven layer stack and no binding
+  that changes profiles at runtime. Choosing how layers compose is a design
+  question that physical tuning should answer first.
+- **D-pad scrolling.** The D-pad is reported as four buttons and can be bound to
+  any shortcut today. Repeat-rate scrolling from the D-pad would need its own
+  repeat engine and would duplicate what the left stick already does better.
+- **Stick role swapping.** The right stick is the pointer and the left stick
+  scrolls; every other knob is configurable. Swapping roles is a one-line change
+  to `NavigationSettings.role(of:)` when someone actually wants it.
+- **Mouse click remapping.** No stick or button emits mouse buttons, so nothing
+  in this slice can click, drag, or select by accident.
+
 ### S5 — Launch shell and end-to-end release smoke
 
 Owner lane: `integration`, `ui/ux`

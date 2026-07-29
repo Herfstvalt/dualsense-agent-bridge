@@ -107,7 +107,12 @@ struct ControllerProfileTests {
     @Test("an unknown schema version is refused instead of guessed")
     func unknownSchemaVersionIsRefused() {
         let json = #"{"schemaVersion": 99, "name": "x", "bindings": {}}"#
-        #expect(throws: ProfileValidationError.unsupportedSchemaVersion(found: 99, supported: 1)) {
+        #expect(
+            throws: ProfileValidationError.unsupportedSchemaVersion(
+                found: 99,
+                supported: ControllerProfile.supportedSchemaVersions
+            )
+        ) {
             try ControllerProfile(decodingJSON: Data(json.utf8))
         }
     }
@@ -149,7 +154,11 @@ struct ControllerProfileTests {
                 == #"Unknown controller control "triangleish". Run "dualsense-bridge controls" to list supported names."#
         )
         #expect(
-            ProfileValidationError.unsupportedSchemaVersion(found: 99, supported: 1).description
+            ProfileValidationError.unsupportedSchemaVersion(found: 99, supported: 1...2).description
+                == "Profile schemaVersion 99 is not supported by this build, which understands versions 1 through 2."
+        )
+        #expect(
+            ProfileValidationError.unsupportedSchemaVersion(found: 99, supported: 1...1).description
                 == "Profile schemaVersion 99 is not supported by this build, which understands version 1."
         )
     }

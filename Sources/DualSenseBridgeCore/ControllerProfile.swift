@@ -24,18 +24,23 @@ public enum ControllerBinding: Hashable, Sendable {
 
 /// Why a stored profile could not be accepted.
 public enum ProfileValidationError: Error, Hashable, Sendable, CustomStringConvertible {
-    case unsupportedSchemaVersion(found: Int, supported: Int)
+    case unsupportedSchemaVersion(found: Int, supported: ClosedRange<Int>)
     case unknownControl(String)
     case unknownBindingKind(control: String, kind: String)
     case invalidShortcut(control: String, text: String, reason: String)
+    case invalidNavigation(reason: String)
     case emptyName
 
     public var description: String {
         switch self {
         case .unsupportedSchemaVersion(let found, let supported):
+            let understood =
+                supported.lowerBound == supported.upperBound
+                ? "version \(supported.lowerBound)"
+                : "versions \(supported.lowerBound) through \(supported.upperBound)"
             return """
                 Profile schemaVersion \(found) is not supported by this build, \
-                which understands version \(supported).
+                which understands \(understood).
                 """
         case .unknownControl(let name):
             return #"Unknown controller control "\#(name)". Run "dualsense-bridge controls" to list supported names."#
@@ -43,28 +48,41 @@ public enum ProfileValidationError: Error, Hashable, Sendable, CustomStringConve
             return #"Binding for "\#(control)" uses unknown kind "\#(kind)". Use "hold" or "tap"."#
         case .invalidShortcut(let control, let text, let reason):
             return #"Binding for "\#(control)" has an invalid shortcut "\#(text)". \#(reason)"#
+        case .invalidNavigation(let reason):
+            return reason
         case .emptyName:
             return "A profile needs a non-empty name."
         }
     }
 }
 
-/// A named, versioned set of control bindings.
+/// A named, versioned set of control bindings and navigation settings.
 public struct ControllerProfile: Hashable, Sendable {
-    public static let currentSchemaVersion = 1
+    /// The version this build writes.
+    public static let currentSchemaVersion = 2
+    /// Every version this build can read.
+    ///
+    /// Version 1 is the S1 format: bindings only, no navigation section. It is
+    /// still accepted and gets the default navigation settings, so upgrading the
+    /// bridge never invalidates a profile a user already tuned.
+    public static let supportedSchemaVersions = 1...2
 
     public let schemaVersion: Int
     public let name: String
     public let bindings: [ControllerControl: ControllerBinding]
+    /// Stick tuning. Always present in memory, whatever the file version was.
+    public let navigation: NavigationSettings
 
     public init(
         schemaVersion: Int = ControllerProfile.currentSchemaVersion,
         name: String,
-        bindings: [ControllerControl: ControllerBinding]
+        bindings: [ControllerControl: ControllerBinding],
+        navigation: NavigationSettings = .default
     ) {
         self.schemaVersion = schemaVersion
         self.name = name
         self.bindings = bindings
+        self.navigation = navigation
     }
 
     public func binding(for control: ControllerControl) -> ControllerBinding? {
@@ -78,11 +96,18 @@ public struct ControllerProfile: Hashable, Sendable {
             .sorted()
     }
 
+    /// Human-readable navigation lines for CLI diagnostics.
+    public var navigationSummaryLines: [String] {
+        navigation.summaryLines
+    }
+
     /// The default terminal profile.
     ///
     /// `l2` holds the Wispr Flow shortcut, `cross` sends Enter, `circle`
     /// cancels with Escape, and `r3` interrupts with Ctrl-C. The DualSense mic
     /// button is deliberately left unbound so it keeps its hardware behavior.
+    /// The right stick moves the pointer and the left stick scrolls, using the
+    /// conservative default navigation settings.
     public static let starterTerminal = ControllerProfile(
         name: "starter-terminal",
         bindings: [
@@ -102,24 +127,86 @@ extension ControllerProfile {
         var keys: String
     }
 
+    /// One stick's stored tuning.
+    ///
+    /// Every field is optional so a hand-edited file may set only the one value
+    /// a user is tuning and inherit the rest, which is the difference between a
+    /// two-line experiment and copying the whole block correctly.
+    private struct StoredAxis: Codable {
+        var deadzone: Double?
+        var responseExponent: Double?
+        var speed: Double?
+        var invertX: Bool?
+        var invertY: Bool?
+
+        init(_ settings: NavigationAxisSettings) {
+            deadzone = settings.deadzone
+            responseExponent = settings.responseExponent
+            speed = settings.speed
+            invertX = settings.invertX
+            invertY = settings.invertY
+        }
+
+        /// Applies whatever was present on top of the defaults.
+        func applied(to defaults: NavigationAxisSettings) -> NavigationAxisSettings {
+            var settings = defaults
+            if let deadzone { settings.deadzone = deadzone }
+            if let responseExponent { settings.responseExponent = responseExponent }
+            if let speed { settings.speed = speed }
+            if let invertX { settings.invertX = invertX }
+            if let invertY { settings.invertY = invertY }
+            return settings
+        }
+    }
+
+    private struct StoredNavigation: Codable {
+        var pointer: StoredAxis?
+        var scroll: StoredAxis?
+        var tickInterval: Double?
+        var maximumTickInterval: Double?
+
+        init(_ settings: NavigationSettings) {
+            pointer = StoredAxis(settings.pointer)
+            scroll = StoredAxis(settings.scroll)
+            tickInterval = settings.tickInterval
+            maximumTickInterval = settings.maximumTickInterval
+        }
+
+        func applied(to defaults: NavigationSettings) -> NavigationSettings {
+            var settings = defaults
+            if let pointer { settings.pointer = pointer.applied(to: defaults.pointer) }
+            if let scroll { settings.scroll = scroll.applied(to: defaults.scroll) }
+            if let tickInterval { settings.tickInterval = tickInterval }
+            if let maximumTickInterval { settings.maximumTickInterval = maximumTickInterval }
+            return settings
+        }
+    }
+
     private struct StoredProfile: Codable {
         var schemaVersion: Int
         var name: String
         var bindings: [String: StoredBinding]
+        /// Absent in every version 1 profile, which is why it is optional.
+        var navigation: StoredNavigation?
     }
 
     /// Decodes and validates a stored profile.
     ///
-    /// Validation is strict: unknown controls, unknown binding kinds, and
-    /// unparseable shortcuts are refused rather than silently dropped, so a
-    /// typo can never quietly disable an interrupt binding.
+    /// Validation is strict: unknown controls, unknown binding kinds,
+    /// unparseable shortcuts, and out-of-range navigation values are refused
+    /// rather than silently dropped, so a typo can never quietly disable an
+    /// interrupt binding or hand the cursor an absurd speed.
+    ///
+    /// A version 1 file is upgraded in memory rather than rejected: the model is
+    /// always the current schema, so nothing later has to ask which version a
+    /// profile came from.
     public init(decodingJSON data: Data) throws {
         let stored = try JSONDecoder().decode(StoredProfile.self, from: data)
 
-        guard stored.schemaVersion == Self.currentSchemaVersion else {
+        guard Self.supportedSchemaVersions.contains(stored.schemaVersion) else {
             throw ProfileValidationError.unsupportedSchemaVersion(
                 found: stored.schemaVersion,
-                supported: Self.currentSchemaVersion
+                supported: Self.supportedSchemaVersions
             )
         }
         guard !stored.name.trimmingCharactersInASCIIWhitespace().isEmpty else {
@@ -154,19 +241,36 @@ extension ControllerProfile {
             }
         }
 
-        self.init(schemaVersion: stored.schemaVersion, name: stored.name, bindings: bindings)
+        let navigation = stored.navigation?.applied(to: .default) ?? .default
+        do {
+            try navigation.validate()
+        } catch let error as NavigationSettingsError {
+            throw ProfileValidationError.invalidNavigation(reason: error.description)
+        }
+
+        self.init(
+            schemaVersion: Self.currentSchemaVersion,
+            name: stored.name,
+            bindings: bindings,
+            navigation: navigation
+        )
     }
 
     /// Encodes the profile as stable, human-editable JSON.
+    ///
+    /// Always written in the current schema version with the navigation section
+    /// spelled out in full, so the file a user edits shows every value that is
+    /// actually in effect rather than hiding defaults.
     public func encodedJSON() throws -> Data {
         let stored = StoredProfile(
-            schemaVersion: schemaVersion,
+            schemaVersion: Self.currentSchemaVersion,
             name: name,
             bindings: Dictionary(
                 uniqueKeysWithValues: bindings.map { control, binding in
                     (control.rawValue, StoredBinding(kind: binding.kindName, keys: binding.stroke.description))
                 }
-            )
+            ),
+            navigation: StoredNavigation(navigation)
         )
 
         let encoder = JSONEncoder()

@@ -149,6 +149,11 @@ extension BridgeCommand {
         Run the bridge in a separate terminal or in the background. Cross,
         Circle, and R3 go to whatever window has focus, so the target agent
         session or text field must be focused, not the bridge's own terminal.
+
+        The right stick moves the pointer and the left stick scrolls. Deadzone,
+        response curve, speed, and axis inversion live in the profile's
+        "navigation" section, so tuning them needs no rebuild. Use --dry-run to
+        read the resulting motion as periodic summaries while tuning.
         """
 
     public static var controlsText: String {

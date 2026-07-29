@@ -28,8 +28,16 @@ validated on a real DualSense.
 
 - PR:
 - Merge commit:
-- Tests:
-- Deferred:
+- Tests: `swift test` — 202 tests in 17 suites, plus a clean release build with no
+  warnings. New coverage: normalized stick axes, deadzone, clamp, response curve,
+  continuous motion from a held stick, release, per-controller and global clear,
+  disconnect, shutdown, coexistence with button actions, sub-pixel quantization,
+  the Accessibility refusal path, throttled dry-run motion logging, and both
+  version 1 and version 2 profile decoding.
+- Deferred: controller-driven profile/layer switching, D-pad scrolling, stick role
+  swapping, and mouse click remapping — each recorded with its reason under S4 in
+  `docs/prd.md`. The subjective tuning pass and sections 1 through 6 of
+  `docs/smoke/s4-stick-navigation.md` still need the user's Mac.
 
 ## Blocked by
 
