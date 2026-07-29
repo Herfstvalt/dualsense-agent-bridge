@@ -6,6 +6,11 @@ sink. They cannot prove that macOS accepts the synthetic events, that a real
 DualSense reports the expected controls, or that Wispr Flow recognizes the
 shortcut. This checklist covers exactly that gap.
 
+The original S1 profile used R3 for Ctrl-C. The active starter profile now uses
+R3 for the user's Ctrl-S Wispr Flow toggle; the complete current mapping and
+hardware checks live in `s4-stick-navigation.md`. The steps below reflect that
+current R3 behavior so they cannot accidentally interrupt a live command.
+
 Run it on a macOS 13+ machine. Record the date, the macOS version, and
 pass/fail per step in the results table. Do not paste real terminal output,
 transcripts, credentials, or absolute home paths into the results.
@@ -18,8 +23,8 @@ transcripts, credentials, or absolute home paths into the results.
       (starter profile: `control+option+space`).
 - [ ] Accessibility permission granted to the terminal app that will run the
       bridge (System Settings > Privacy & Security > Accessibility).
-- [ ] A scratch directory and a long-running command available for the
-      interrupt test. Never smoke-test against a session doing real work.
+- [ ] A scratch text field available for the dictation-toggle test. Never
+      smoke-test synthetic input against a session doing real work.
 - [ ] The bridge running in its own terminal inside the logged-in macOS GUI
       session, so focus can stay on the target session. Do not launch the bridge
       from a plain SSH login: it can discover the controller there but does not
@@ -80,9 +85,9 @@ With focus in a real terminal running an interactive agent session:
       message is submitted, exactly as pressing Return would.
 - [ ] Start a new dictation and press Circle. The dictation/prompt is
       cancelled, matching Escape.
-- [ ] Start a long-running command, then click the right stick (R3). The
-      command is interrupted, matching Control-C. No session is killed and no
-      other window is affected.
+- [ ] Click the right stick (R3). Wispr Flow toggles dictation using Ctrl-S;
+      click R3 again and confirm dictation stops. No command is interrupted and
+      no other window is affected.
 
 ## 5. Interruption and cleanup
 
@@ -131,7 +136,7 @@ even if permission is revoked mid-hold.
 | 1. Permission boundary | pending | Needs a machine where Accessibility can be toggled for the host terminal. |
 | 2. Controller recognition | partial | A plain SSH launch discovered the controller but received no HID events. Re-running in the logged-in iTerm GUI session connected successfully and logged Cross, Circle, L2 press/release, face buttons, shoulders, D-pad, PS, and Options. R3 and the unbound mic button still need an explicit repeat. |
 | 3. Wispr Flow press-to-talk | pending | Wispr Flow is installed and running on the hardware-test Mac; real shortcut activation and dictation remain unverified. |
-| 4. Terminal actions | pending | Cross→Return and Circle→Escape passed in dry-run; real synthetic output and R3→Ctrl-C remain unverified. |
+| 4. Terminal actions | pending | Cross→Return and Circle→Escape passed in dry-run; real synthetic output and the current R3→Ctrl-S Wispr toggle remain unverified. |
 | 5. Interruption and cleanup | pending | Requires a connected controller; automated coverage exists for disconnect and shutdown release. |
 | 6. Configuration | pending | Profile validation is covered by automated tests; the live Wispr shortcut change is not. |
 

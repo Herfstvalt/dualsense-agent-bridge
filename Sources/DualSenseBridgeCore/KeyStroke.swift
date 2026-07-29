@@ -230,9 +230,13 @@ extension KeyStroke {
 
     private static let keyAliases: [String: KeyCode] = {
         var aliases: [String: KeyCode] = [:]
+        // Lowercased on the way in, because parsing lowercases its tokens. Without
+        // this every camelCase name the encoder writes -- `arrowUp`,
+        // `forwardDelete`, `pageDown` -- parsed as an unknown key, so a profile
+        // this build had just written could not be read back.
         for key in KeyCode.allCases where key.modifier == nil {
-            aliases[key.rawValue] = key
-            aliases[key.canonicalName] = key
+            aliases[key.rawValue.lowercased()] = key
+            aliases[key.canonicalName.lowercased()] = key
         }
         aliases["enter"] = .return
         aliases["esc"] = .escape

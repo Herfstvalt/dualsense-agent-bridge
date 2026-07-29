@@ -36,8 +36,8 @@ struct ControllerBridgeTests {
         #expect(bridge.heldKeys.isEmpty)
     }
 
-    @Test("Circle cancels and R3 interrupts")
-    func cancelAndInterrupt() {
+    @Test("Circle cancels and R3 toggles dictation")
+    func cancelAndDictationToggle() {
         var input = FakeControllerInput()
         let (bridge, sink) = makeBridge()
 
@@ -47,9 +47,25 @@ struct ControllerBridgeTests {
         #expect(
             sink.emissions == [
                 .down(.escape), .up(.escape),
-                .down(.control), .down(.c), .up(.c), .up(.control),
+                .down(.control), .down(.s), .up(.s), .up(.control),
             ]
         )
+    }
+
+    @Test("R1 sends the tmux prefix and the next-window key end to end")
+    func tmuxNextWindowEndToEnd() {
+        var input = FakeControllerInput()
+        let (bridge, sink) = makeBridge()
+
+        bridge.handle(input.press(.r1))
+
+        #expect(
+            sink.emissions == [
+                .down(.control), .down(.b), .up(.b), .up(.control),
+                .down(.n), .up(.n),
+            ]
+        )
+        #expect(bridge.heldKeys.isEmpty)
     }
 
     @Test("a disconnect during dictation releases the Wispr chord")

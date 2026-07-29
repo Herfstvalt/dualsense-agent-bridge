@@ -157,8 +157,24 @@ extension BridgeCommand {
         """
 
     public static var controlsText: String {
-        (["Controller control names accepted in a profile:"]
-            + ControllerControl.allCases.map { "  \($0.rawValue)" })
+        let controls = ControllerControl.allCases.map { control in
+            switch control {
+            case .r2:
+                "  \(control.rawValue) (also holds the right mouse button)"
+            case .micButton:
+                "  \(control.rawValue) (starter profile leaves this unbound for hardware mute)"
+            default:
+                "  \(control.rawValue)"
+            }
+        }
+
+        return (["Controller control names accepted in a profile:"]
+            + controls
+            + [
+                "",
+                "Binding kinds: hold, tap, tapSequence",
+                "tapSequence example: control+b, n",
+            ])
             .joined(separator: "\n")
     }
 }

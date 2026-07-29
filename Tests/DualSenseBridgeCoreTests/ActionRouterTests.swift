@@ -60,13 +60,37 @@ struct ActionRouterTests {
         #expect(router.handle(input.press(.cross)) == [.tap(KeyStroke(key: .return))])
     }
 
-    @Test("Circle taps Escape and R3 taps Ctrl-C")
-    func circleAndInterrupt() {
+    @Test("Circle taps Escape and R3 taps the Wispr Flow toggle")
+    func circleAndDictationToggle() {
         var input = FakeControllerInput()
         var router = ActionRouter(profile: .starterTerminal)
 
         #expect(router.handle(input.press(.circle)) == [.tap(KeyStroke(key: .escape))])
-        #expect(router.handle(input.press(.r3)) == [.tap(KeyStroke(key: .c, modifiers: .control))])
+        #expect(router.handle(input.press(.r3)) == [.tap(KeyStroke(key: .s, modifiers: .control))])
+    }
+
+    @Test("the shoulders send the tmux prefix and then a command key")
+    func shouldersSendTmuxSequences() {
+        var input = FakeControllerInput()
+        var router = ActionRouter(profile: .starterTerminal)
+        let prefix = KeyStroke(key: .b, modifiers: .control)
+
+        #expect(router.handle(input.press(.r1)) == [.tap(prefix), .tap(KeyStroke(key: .n))])
+        #expect(router.handle(input.press(.l1)) == [.tap(prefix), .tap(KeyStroke(key: .p))])
+        #expect(router.handle(input.press(.l3)) == [.tap(prefix), .tap(KeyStroke(key: .s))])
+    }
+
+    @Test("the D-pad walks history and the touchpad click toggles the terminal")
+    func dpadAndTouchpad() {
+        var input = FakeControllerInput()
+        var router = ActionRouter(profile: .starterTerminal)
+
+        #expect(router.handle(input.press(.dpadUp)) == [.tap(KeyStroke(key: .arrowUp))])
+        #expect(router.handle(input.press(.dpadDown)) == [.tap(KeyStroke(key: .arrowDown))])
+        #expect(
+            router.handle(input.press(.touchpadButton))
+                == [.tap(KeyStroke(key: .grave, modifiers: .control))]
+        )
     }
 
     @Test("a tap binding emits nothing on release")

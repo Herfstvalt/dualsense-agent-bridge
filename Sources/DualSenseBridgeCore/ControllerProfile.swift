@@ -7,17 +7,33 @@ public enum ControllerBinding: Hashable, Sendable {
     case hold(KeyStroke)
     /// Emit a complete key-down/key-up pair on button-down.
     case tap(KeyStroke)
+    /// Emit several complete key-down/key-up pairs in order on button-down.
+    ///
+    /// This exists for prefix-key programs: tmux reads `control+b` and *then* the
+    /// command key, so the two cannot be sent as one chord. It is deliberately
+    /// only an ordered list — no delays, no nesting, no repeats — because the
+    /// moment a binding can express timing it stops being a binding and becomes a
+    /// macro language to maintain.
+    case tapSequence([KeyStroke])
 
-    public var stroke: KeyStroke {
+    /// Every shortcut this binding involves, in the order it is sent.
+    public var strokes: [KeyStroke] {
         switch self {
-        case .hold(let stroke), .tap(let stroke): stroke
+        case .hold(let stroke), .tap(let stroke): [stroke]
+        case .tapSequence(let strokes): strokes
         }
+    }
+
+    /// The shortcuts as stored and displayed, e.g. `control+b, n`.
+    var strokeText: String {
+        strokes.map(\.description).joined(separator: ", ")
     }
 
     var kindName: String {
         switch self {
         case .hold: "hold"
         case .tap: "tap"
+        case .tapSequence: "tapSequence"
         }
     }
 }
@@ -28,6 +44,7 @@ public enum ProfileValidationError: Error, Hashable, Sendable, CustomStringConve
     case unknownControl(String)
     case unknownBindingKind(control: String, kind: String)
     case invalidShortcut(control: String, text: String, reason: String)
+    case emptyTapSequence(control: String)
     case invalidNavigation(reason: String)
     case emptyName
 
@@ -45,9 +62,11 @@ public enum ProfileValidationError: Error, Hashable, Sendable, CustomStringConve
         case .unknownControl(let name):
             return #"Unknown controller control "\#(name)". Run "dualsense-bridge controls" to list supported names."#
         case .unknownBindingKind(let control, let kind):
-            return #"Binding for "\#(control)" uses unknown kind "\#(kind)". Use "hold" or "tap"."#
+            return #"Binding for "\#(control)" uses unknown kind "\#(kind)". Use "hold", "tap", or "tapSequence"."#
         case .invalidShortcut(let control, let text, let reason):
             return #"Binding for "\#(control)" has an invalid shortcut "\#(text)". \#(reason)"#
+        case .emptyTapSequence(let control):
+            return #"Binding for "\#(control)" is an empty sequence. List shortcuts in order, such as "control+b, n"."#
         case .invalidNavigation(let reason):
             return reason
         case .emptyName:
@@ -92,7 +111,7 @@ public struct ControllerProfile: Hashable, Sendable {
     /// Sorted, human-readable binding lines for CLI diagnostics.
     public var summaryLines: [String] {
         bindings
-            .map { "\($0.key.rawValue) -> \($0.value.kindName) \($0.value.stroke)" }
+            .map { "\($0.key.rawValue) -> \($0.value.kindName) \($0.value.strokeText)" }
             .sorted()
     }
 
@@ -101,20 +120,41 @@ public struct ControllerProfile: Hashable, Sendable {
         navigation.summaryLines
     }
 
+    /// The tmux prefix, pressed and released before each command key.
+    private static let tmuxPrefix = KeyStroke(key: .b, modifiers: .control)
+
     /// The default terminal profile.
     ///
-    /// `l2` holds the Wispr Flow shortcut, `cross` sends Enter, `circle`
-    /// cancels with Escape, and `r3` interrupts with Ctrl-C. The DualSense mic
-    /// button is deliberately left unbound so it keeps its hardware behavior.
+    /// Dictation is on the left trigger: `l2` holds the Wispr Flow press-to-talk
+    /// shortcut and `r3` taps its toggle. `cross` sends Enter, `circle` cancels
+    /// with Escape, and the D-pad walks shell history.
+    ///
+    /// The shoulders drive tmux through its prefix: `r1` and `l1` step between
+    /// windows and `l3` opens the session list. Each is a sequence rather than a
+    /// chord because tmux reads the prefix and the command key as two separate
+    /// keystrokes.
+    ///
+    /// Three controls are deliberately left out. The DualSense mic button keeps
+    /// its hardware mute, `r2` belongs to the right mouse button rather than the
+    /// keyboard, and Square and Triangle stay free so there is an obvious place to
+    /// add a personal binding. Nothing here needs Command or a delete key, so a
+    /// misfire in a terminal cannot destroy anything.
+    ///
     /// The right stick moves the pointer and the left stick scrolls, using the
     /// conservative default navigation settings.
     public static let starterTerminal = ControllerProfile(
         name: "starter-terminal",
         bindings: [
             .l2: .hold(KeyStroke(key: .space, modifiers: [.control, .option])),
+            .r3: .tap(KeyStroke(key: .s, modifiers: .control)),
             .cross: .tap(KeyStroke(key: .return)),
             .circle: .tap(KeyStroke(key: .escape)),
-            .r3: .tap(KeyStroke(key: .c, modifiers: .control)),
+            .touchpadButton: .tap(KeyStroke(key: .grave, modifiers: .control)),
+            .r1: .tapSequence([tmuxPrefix, KeyStroke(key: .n)]),
+            .l1: .tapSequence([tmuxPrefix, KeyStroke(key: .p)]),
+            .l3: .tapSequence([tmuxPrefix, KeyStroke(key: .s)]),
+            .dpadUp: .tap(KeyStroke(key: .arrowUp)),
+            .dpadDown: .tap(KeyStroke(key: .arrowDown)),
         ]
     )
 }
@@ -219,20 +259,15 @@ extension ControllerProfile {
                 throw ProfileValidationError.unknownControl(controlName)
             }
 
-            let stroke: KeyStroke
-            do {
-                stroke = try KeyStroke(parsing: storedBinding.keys)
-            } catch let error as KeyStrokeParseError {
-                throw ProfileValidationError.invalidShortcut(
-                    control: controlName,
-                    text: storedBinding.keys,
-                    reason: error.description
-                )
-            }
-
             switch storedBinding.kind {
-            case "hold": bindings[control] = .hold(stroke)
-            case "tap": bindings[control] = .tap(stroke)
+            case "hold":
+                bindings[control] = .hold(try Self.parseStroke(storedBinding.keys, for: controlName))
+            case "tap":
+                bindings[control] = .tap(try Self.parseStroke(storedBinding.keys, for: controlName))
+            case "tapSequence":
+                bindings[control] = .tapSequence(
+                    try Self.parseSequence(storedBinding.keys, for: controlName)
+                )
             default:
                 throw ProfileValidationError.unknownBindingKind(
                     control: controlName,
@@ -256,6 +291,47 @@ extension ControllerProfile {
         )
     }
 
+    /// Parses one shortcut, reporting which control the bad text came from.
+    ///
+    /// The control name is what makes the message actionable: `"nope" is not a
+    /// key` sends a user hunting through the file, while naming `r1` does not.
+    private static func parseStroke(_ text: String, for control: String) throws -> KeyStroke {
+        do {
+            return try KeyStroke(parsing: text)
+        } catch let error as KeyStrokeParseError {
+            throw ProfileValidationError.invalidShortcut(
+                control: control,
+                text: text,
+                reason: error.description
+            )
+        }
+    }
+
+    /// Parses an ordered, comma-separated list of shortcuts.
+    ///
+    /// Comma is unambiguous as the separator because shortcuts join their parts
+    /// with `+` and every key is named in words, so the comma key itself is
+    /// spelled `comma` and survives a round trip.
+    private static func parseSequence(_ text: String, for control: String) throws -> [KeyStroke] {
+        let parts = text
+            .split(separator: ",", omittingEmptySubsequences: false)
+            .map { $0.trimmingCharactersInASCIIWhitespace() }
+
+        // An empty sequence would be a binding that silently does nothing, which
+        // is exactly the failure mode strict validation exists to prevent.
+        guard parts.contains(where: { !$0.isEmpty }) else {
+            throw ProfileValidationError.emptyTapSequence(control: control)
+        }
+        guard !parts.contains(where: \.isEmpty) else {
+            throw ProfileValidationError.invalidShortcut(
+                control: control,
+                text: "",
+                reason: "A tap sequence cannot contain an empty shortcut."
+            )
+        }
+        return try parts.map { try parseStroke($0, for: control) }
+    }
+
     /// Encodes the profile as stable, human-editable JSON.
     ///
     /// Always written in the current schema version with the navigation section
@@ -267,7 +343,7 @@ extension ControllerProfile {
             name: name,
             bindings: Dictionary(
                 uniqueKeysWithValues: bindings.map { control, binding in
-                    (control.rawValue, StoredBinding(kind: binding.kindName, keys: binding.stroke.description))
+                    (control.rawValue, StoredBinding(kind: binding.kindName, keys: binding.strokeText))
                 }
             ),
             navigation: StoredNavigation(navigation)

@@ -8,9 +8,10 @@ sessions usable from a controller plus Wispr Flow:
 
 - a dedicated controller action starts/stops Wispr Flow press-to-talk;
 - Cross sends Enter and Circle cancels;
-- R3 interrupts the focused session with Ctrl-C;
-- the D-pad changes the active tmux session;
+- the shoulder buttons drive tmux windows and the session list;
+- the D-pad walks shell history;
 - the right stick moves the pointer and the left stick scrolls;
+- R2 holds the right mouse button for context menus and right-drag gestures;
 - the latest safe response can be spoken locally with macOS `say`.
 
 This is an early, macOS-first open-source project. The first milestone favors
@@ -70,24 +71,56 @@ previous value back when it stops.
 | Control | Action | Keys |
 | --- | --- | --- |
 | `l2` | hold | `control+option+space` (Wispr Flow press-to-talk) |
+| `r3` | tap | `control+s` (Wispr Flow toggle) |
 | `cross` | tap | `return` |
 | `circle` | tap | `escape` |
-| `r3` | tap | `control+c` |
+| `touchpadButton` | tap | `control+grave` |
+| `r1` | tapSequence | `control+b, n` (tmux next window) |
+| `l1` | tapSequence | `control+b, p` (tmux previous window) |
+| `l3` | tapSequence | `control+b, s` (tmux session list) |
+| `dpadUp` | tap | `arrowUp` |
+| `dpadDown` | tap | `arrowDown` |
 
-| Stick | Action | Defaults |
-| --- | --- | --- |
-| right | move the pointer | deadzone 0.15, curve 2.0, 700 px/s |
-| left | scroll | deadzone 0.2, curve 2.0, 500 px/s |
+| Control | Action |
+| --- | --- |
+| right stick | move the pointer — deadzone 0.15, curve 2.0, 700 px/s |
+| left stick | scroll — deadzone 0.2, curve 2.0, 500 px/s |
+| `r2` | hold the right mouse button |
 
-The DualSense mic button is intentionally left unbound so it keeps its hardware
-mute behavior.
+A `tapSequence` sends each shortcut as a complete press *and release*, in order.
+That is what the tmux bindings need: tmux reads `control+b` and then the command
+key as two separate keystrokes, so sending them as one chord would not work. It
+is only an ordered list — there are no delays, repeats, or nesting, because a
+binding that can express timing stops being a binding and becomes a macro
+language.
+
+Three controls are left out on purpose. The DualSense mic button keeps its
+hardware mute, `r2` belongs to the right mouse button rather than the keyboard,
+and Square and Triangle stay free as the obvious place to add your own binding.
+Nothing in the starter map uses Command or a delete key, so a misfire in a
+terminal cannot destroy anything.
 
 ### Stick navigation
 
 The right stick moves the macOS pointer and the left stick scrolls the focused
-view, both continuously while the stick is held. No stick or button emits mouse
-*clicks*: this bridge can point and scroll, but it cannot click, drag, or select
-by accident.
+view, both continuously while the stick is held.
+
+Holding `r2` presses the right mouse button and keeps it down. Pushing the right
+stick while `r2` is held emits right-button *drag* events rather than plain moves,
+which is what macOS requires for an application to track a right-button gesture
+at all. Releasing `r2` lifts the button and the stick goes back to plain movement.
+
+What that gets you is a genuine right-button hold and drag: context menus, and
+whatever right-drag gestures the focused application happens to implement. It is
+*not* text selection — macOS selects with a left-button drag, and left and middle
+click are still not bound to anything.
+
+A held mouse button is worse to leave latched than a held key, so it is released
+on every exit: `r2` release, controller disconnect, reconnect, a profile change,
+shutdown, and process teardown. Those cleanup releases deliberately ignore the
+Accessibility permission check, because revoking permission mid-drag must not be
+able to leave the button down. Pausing mid-drag is safe: the stick returning to
+centre drops the sub-pixel remainder but does not release the button.
 
 Four knobs shape the feel, per stick, and none of them needs a rebuild:
 
@@ -115,7 +148,14 @@ tick, which is what makes it usable for tuning:
 ```text
   mouse dx=+318 dy=-96 over 0.50s (61 samples)
   scroll dx=+0 dy=-140 over 0.50s (61 samples)
+  right button down
+  drag dx=+84 dy=+12 over 0.50s (61 samples)
+  right button up
 ```
+
+Drag motion is summarized separately from ordinary motion, and button
+transitions are never throttled, so a smoke test can see exactly where a drag
+started and ended.
 
 Both pointer and scroll output need the same Accessibility permission as the
 keyboard, and it is re-read per event: revoking it mid-motion stops the cursor
@@ -143,8 +183,12 @@ Edit that file, then run `dualsense-bridge doctor` to validate it. A profile is
 versioned (`schemaVersion`) and validated strictly: an unknown control name,
 unknown binding kind, unparseable shortcut, or out-of-range navigation value is
 refused with a message instead of being silently ignored, so a typo cannot
-quietly disable the interrupt binding or hand the cursor an absurd speed. Use
+quietly disable a binding or hand the cursor an absurd speed. Use
 `--profile <path>` to load a profile from another location.
+
+A binding's `kind` is `hold`, `tap`, or `tapSequence`. A `tapSequence` lists its
+shortcuts in order, separated by commas — `"keys": "control+b, n"` — and an empty
+list is refused rather than accepted as a binding that does nothing.
 
 Schema version 2 adds the `navigation` section. Version 1 profiles — bindings
 only — still load and simply get the default navigation settings, so upgrading
@@ -172,7 +216,8 @@ swift build
 
 Behavior is tested through a fake input source, a fake keyboard sink, and a fake
 pointer sink, so press/release ordering, duplicate and out-of-order events,
-held-key cleanup on disconnect and shutdown, deadzone/clamp/curve arithmetic,
+held-key and held-button cleanup on disconnect and shutdown, per-controller hold
+ownership, drag-versus-move event selection, deadzone/clamp/curve arithmetic,
 continuous motion from a held stick, and the Accessibility refusal path all run
 without a controller attached. The navigation engine takes its clock as an
 argument, so a test advances time by hand and asserts exact pixel deltas.

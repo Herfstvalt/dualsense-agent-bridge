@@ -37,6 +37,11 @@ input, which is the failure mode already recorded for S1.
 - [ ] An existing S1 profile (no `navigation` key, `"schemaVersion": 1`) still
       loads: `dualsense-bridge doctor --profile <old file>` reports it and shows
       the default navigation values.
+- [ ] `dualsense-bridge profile --starter` shows `r3` on `control+s`, the three
+      `tapSequence` bindings for `r1`/`l1`/`l3`, `touchpadButton` on
+      `control+grave`, and no `r2` binding.
+- [ ] Feeding that same output back in with `--profile` loads cleanly, which is
+      what proves the sequence and arrow-key spellings can be read back.
 
 ## 1. Stick recognition
 
@@ -94,10 +99,36 @@ With focus in a long terminal buffer or a web page:
       the cursor moves; releasing L2 inserts the transcript as usual.
 - [ ] Press Cross while a stick is held. Return is delivered once and motion is
       unaffected.
-- [ ] Click the right stick (R3) while pushing it. Ctrl-C is delivered and the
+- [ ] Click the right stick (R3) while pushing it. Ctrl-S is delivered and the
       cursor keeps moving; R3 does not become a mouse click.
-- [ ] Nothing in this slice emits a mouse button, so no click, drag, or text
-      selection happens at any point.
+- [ ] Press R1, L1, and L3 in a tmux session. R1 moves to the next window, L1 to
+      the previous, and L3 opens the session list. Confirm no literal `b`
+      character is left on the prompt, which is what a chord instead of a
+      sequence would produce.
+- [ ] Press D-pad Up and Down at a shell prompt. History moves one entry per
+      press.
+- [ ] Press the touchpad button. Control-backtick reaches the focused app.
+- [ ] Left and middle click are still unbound, so nothing in this bridge can
+      left-click or left-drag.
+
+## 4b. Right button hold and drag (R2)
+
+- [ ] Pull R2 with the pointer over a Finder window or web page. A context menu
+      opens on release, exactly as a real right click would.
+- [ ] Hold R2 and push the right stick. `run --dry-run` reports `right button
+      down`, then `drag dx=… dy=…` summaries instead of `mouse dx=… dy=…`, then
+      `right button up`. Button lines are not throttled.
+- [ ] Release R2 without moving. The button lifts and the next stick push reports
+      `mouse`, not `drag`, again.
+- [ ] Hold R2, push the stick, let the stick return to centre, then push again
+      while still holding R2. The button stays down across the pause.
+- [ ] Press R2 twice without releasing, then release twice. Only one `right
+      button down` and one `right button up` appear.
+- [ ] Confirm this is a *right*-button drag only: it drives context menus and any
+      right-drag gesture the focused app implements. It is not text selection,
+      which macOS does with a left-button drag.
+- [ ] Confirm no key output accompanies R2. `run --dry-run` shows no
+      `unmapped(r2)` line and no keystroke.
 
 ## 5. Interruption and cleanup
 
@@ -115,6 +146,16 @@ With focus in a long terminal buffer or a web page:
 - [ ] Suspend the bridge (`Control-Z`, wait ten seconds, `fg`) while a stick is
       held. On resume the cursor moves at most a small jump, not across the whole
       screen; this is the stall clamp doing its job.
+- [ ] While holding R2, turn the controller off. The right button comes back up:
+      confirm a subsequent physical left click behaves normally and no context
+      menu is stuck open.
+- [ ] While holding R2, press Control-C in the bridge terminal. The button is
+      released on the way out.
+- [ ] While holding R2, revoke Accessibility permission, then stop the bridge.
+      The button is still released — cleanup deliberately bypasses the permission
+      check so a revoked permission cannot latch it.
+- [ ] While holding R2, `kill` the bridge process. Confirm the button does not
+      stay down.
 
 ## 6. Configuration
 
@@ -130,12 +171,12 @@ With focus in a long terminal buffer or a web page:
 
 | Section | Status | Notes |
 | --- | --- | --- |
-| 0. Baseline without hardware | pass | `swift test` (209 tests, 17 suites) and a clean release build pass with no warnings; `doctor`, `profile --starter`, and a version 1 profile without a `navigation` section were all verified. |
+| 0. Baseline without hardware | pass | Clean-scratch `swift test` (262 tests, 20 suites) and a clean-scratch release build pass with no warnings; `doctor`, `profile --starter`, and a version 1 profile without a `navigation` section were all verified. |
 | 1. Stick recognition | pending | Needs the paired DualSense in a GUI session. |
 | 2. Pointer direction and feel | pending | Subjective; the shipped defaults are a starting point, not a verdict. |
 | 3. Scroll direction and feel | pending | Horizontal wheel polarity in particular needs a real check; `scroll.invertX` exists for exactly that. |
 | 4. Coexistence with the S1 bindings | pending | Automated coverage exists for stick-and-button coexistence; the live Wispr path does not. |
-| 5. Interruption and cleanup | pending | Automated coverage exists for release, disconnect, shutdown, and the refusal path. |
+| 5. Interruption and cleanup | pending | Automated coverage exists for held-key and held-button release, disconnect, reconnect, profile replacement, shutdown, deinit, and permission-refusal paths. |
 | 6. Configuration | pending | Profile decoding and validation are covered by automated tests; the live feel of a changed value is not. |
 
 ### Tuning record

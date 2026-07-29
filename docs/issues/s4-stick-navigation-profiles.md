@@ -28,18 +28,19 @@ validated on a real DualSense.
 
 - PR: #8 (stacked on `agent/s1-controller-wispr`, PR #7)
 - Merge commit:
-- Tests: `swift test` — 209 tests in 17 suites, plus a clean release build with no
-  warnings. New coverage: normalized stick axes, deadzone, clamp, response curve,
-  continuous motion from a held stick, release, per-controller and global clear,
-  disconnect, shutdown, coexistence with button actions, sub-pixel quantization,
-  the Accessibility refusal path, throttled dry-run motion logging, and both
-  version 1 and version 2 profile decoding.
-- Deferred: controller-driven profile/layer switching, D-pad scrolling, stick role
-  swapping, and mouse click remapping — each recorded with its reason under S4 in
-  `docs/prd.md`. The subjective tuning pass and sections 1 through 6 of
+- Tests: clean-scratch `swift test` — 262 tests in 20 suites, plus a clean-scratch
+  release build with no warnings. Coverage includes normalized stick axes,
+  deadzone, clamp, response curve, continuous motion, release, disconnect,
+  shutdown, sub-pixel quantization, the Accessibility refusal path, throttled
+  dry-run logging, version 1 and version 2 profile decoding, ordered tmux key
+  sequences, starter-profile round trips, and R2 right-button ownership, drag,
+  failure, and cleanup behavior.
+- Deferred: controller-driven profile/layer switching, D-pad repeat scrolling,
+  stick role swapping, and configurable left/middle mouse buttons — each recorded
+  with its reason under S4 in `docs/prd.md`. R2 now has a fixed, safe right-button
+  hold. The subjective tuning pass and sections 1 through 6 of
   `docs/smoke/s4-stick-navigation.md` still need the user's Mac.
 
 ## Blocked by
 
 - #2
-

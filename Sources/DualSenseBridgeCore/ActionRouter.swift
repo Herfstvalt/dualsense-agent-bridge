@@ -108,6 +108,13 @@ public struct ActionRouter: Sendable {
             return [.tap(stroke)]
         case (.tap, .released):
             return []
+        case (.tapSequence(let strokes), .pressed):
+            // No new action is needed: routing already returns an ordered list, and
+            // each `tap` presses and fully releases its own chord, which is exactly
+            // what a prefix-key sequence means.
+            return strokes.map { .tap($0) }
+        case (.tapSequence, .released):
+            return []
         case (.hold(let stroke), .pressed):
             // A duplicate press must not emit a second key-down; the key is
             // already down and only one release will follow.

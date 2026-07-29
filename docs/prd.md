@@ -43,8 +43,8 @@ then adds a documented live hardware smoke test on the user's Mac.
    can be sent immediately.
 7. As a terminal user, I want Circle to emit Escape, so that I can cancel a
    dictation or close a transient prompt.
-8. As an agent operator, I want a dedicated interrupt action, so that R3 can
-   send Ctrl-C without confusing it with message submission.
+8. As a Wispr Flow user, I want R3 to send my Ctrl-S toggle shortcut, so that I
+   can start or stop hands-free dictation without holding a trigger.
 9. As an agent operator, I want to list active tmux sessions, so that I can
    understand the current teamwork workspace.
 10. As an agent operator, I want D-pad left/right to change the selected
@@ -100,8 +100,10 @@ then adds a documented live hardware smoke test on the user's Mac.
 - Treat the physical DualSense mic button as independently configurable; the
   default profile may reserve it for hardware mute while a separate button
   controls Wispr.
-- Use Cross→Enter, Circle→Escape, and R3→Ctrl-C in the starter terminal
-  profile. A literal session kill is never bound to a normal Enter action.
+- Use Cross→Enter, Circle→Escape, R3→Ctrl-S, and touchpad click→Ctrl-backtick in
+  the starter terminal profile. Use R1/L1/L3 for fully released tmux prefix
+  sequences (`Ctrl-B`, then `n`/`p`/`s`) and D-pad Up/Down for shell history.
+  A literal session kill is never bound to a normal button.
 - Make tmux the canonical local control plane. The Session Bridge exposes
   list, select, focus/attach, send, interrupt, capture, and latest-response
   operations through typed interfaces.
@@ -163,8 +165,8 @@ then adds a documented live hardware smoke test on the user's Mac.
 Owner lane: `backend-engineering`, `integration`
 
 Deliver a complete path from normalized controller events to Wispr PTT and
-terminal actions: dedicated hold-to-talk, Cross→Enter, Circle→Escape, R3→
-Ctrl-C, configuration, fake-input tests, and a documented live smoke checklist.
+terminal actions: dedicated hold-to-talk, Cross→Enter, Circle→Escape, an R3
+toggle, configuration, fake-input tests, and a documented live smoke checklist.
 
 Suggested labels: `enhancement`, `needs-triage`, `backend-engineering`,
 `integration`, `human-in-the-loop`
@@ -222,8 +224,10 @@ omission:
 - **Stick role swapping.** The right stick is the pointer and the left stick
   scrolls; every other knob is configurable. Swapping roles is a one-line change
   to `NavigationSettings.role(of:)` when someone actually wants it.
-- **Mouse click remapping.** No stick or button emits mouse buttons, so nothing
-  in this slice can click, drag, or select by accident.
+- **Configurable mouse-button remapping.** R2 has one fixed pointer action: hold
+  the right button, with right-stick movement emitted as a right-button drag.
+  Left click, middle click, and arbitrary mouse-button profile bindings remain
+  deferred until the hardware pass identifies a safe layout.
 
 ### S5 — Launch shell and end-to-end release smoke
 

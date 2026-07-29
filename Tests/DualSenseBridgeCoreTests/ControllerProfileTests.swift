@@ -53,7 +53,7 @@ struct ControllerEventTests {
 
 @Suite("profiles are versioned, validated, and safe by default")
 struct ControllerProfileTests {
-    @Test("the starter profile binds Wispr hold, Enter, Escape, and interrupt")
+    @Test("the starter profile binds Wispr hold, Enter, Escape, and the Wispr toggle")
     func starterProfileBindings() throws {
         let profile = ControllerProfile.starterTerminal
 
@@ -61,17 +61,66 @@ struct ControllerProfileTests {
         #expect(profile.binding(for: .l2) == .hold(try KeyStroke(parsing: "control+option+space")))
         #expect(profile.binding(for: .cross) == .tap(KeyStroke(key: .return)))
         #expect(profile.binding(for: .circle) == .tap(KeyStroke(key: .escape)))
-        #expect(profile.binding(for: .r3) == .tap(KeyStroke(key: .c, modifiers: .control)))
+        #expect(profile.binding(for: .r3) == .tap(KeyStroke(key: .s, modifiers: .control)))
     }
 
-    @Test("the starter profile leaves the controller mic button alone")
-    func micButtonIsUnbound() {
-        #expect(ControllerProfile.starterTerminal.binding(for: .micButton) == nil)
+    @Test("the starter profile drives tmux windows and sessions from the shoulders")
+    func starterProfileTmuxBindings() {
+        let profile = ControllerProfile.starterTerminal
+        let prefix = KeyStroke(key: .b, modifiers: .control)
+
+        #expect(profile.binding(for: .r1) == .tapSequence([prefix, KeyStroke(key: .n)]))
+        #expect(profile.binding(for: .l1) == .tapSequence([prefix, KeyStroke(key: .p)]))
+        #expect(profile.binding(for: .l3) == .tapSequence([prefix, KeyStroke(key: .s)]))
+    }
+
+    @Test("the starter profile maps the touchpad click and the D-pad")
+    func starterProfileTouchpadAndDpad() {
+        let profile = ControllerProfile.starterTerminal
+
+        #expect(profile.binding(for: .touchpadButton) == .tap(KeyStroke(key: .grave, modifiers: .control)))
+        #expect(profile.binding(for: .dpadUp) == .tap(KeyStroke(key: .arrowUp)))
+        #expect(profile.binding(for: .dpadDown) == .tap(KeyStroke(key: .arrowDown)))
+    }
+
+    @Test("the starter profile leaves the mic button, Square, and Triangle alone")
+    func reservedControlsAreUnbound() {
+        let profile = ControllerProfile.starterTerminal
+
+        // The mic button keeps its hardware mute; Square and Triangle are left
+        // free on purpose so there is somewhere obvious to add a personal binding.
+        #expect(profile.binding(for: .micButton) == nil)
+        #expect(profile.binding(for: .square) == nil)
+        #expect(profile.binding(for: .triangle) == nil)
+    }
+
+    @Test("the starter profile binds exactly the controls the map names")
+    func starterProfileBindsNothingElse() {
+        let bound = Set(ControllerProfile.starterTerminal.bindings.keys)
+
+        // R2 is absent because the pointer owns it, not the keyboard.
+        #expect(
+            bound == [
+                .l2, .cross, .circle, .r3, .r1, .l1, .l3,
+                .touchpadButton, .dpadUp, .dpadDown,
+            ]
+        )
+    }
+
+    @Test("the whole starter profile round-trips through its own file format")
+    func starterProfileRoundTrips() throws {
+        let decoded = try ControllerProfile(
+            decodingJSON: try ControllerProfile.starterTerminal.encodedJSON()
+        )
+
+        #expect(decoded == ControllerProfile.starterTerminal)
     }
 
     @Test("the starter profile binds no destructive action")
     func noDestructiveBindings() {
-        let strokes = ControllerProfile.starterTerminal.bindings.values.map(\.stroke)
+        // Flattened, so every step of a tap sequence is checked and not just its
+        // first keystroke.
+        let strokes = ControllerProfile.starterTerminal.bindings.values.flatMap(\.strokes)
         #expect(!strokes.contains(where: { $0.modifiers.contains(.command) }))
         #expect(strokes.allSatisfy { $0.key != .delete && $0.key != .forwardDelete })
     }
@@ -161,6 +210,10 @@ struct ControllerProfileTests {
             ProfileValidationError.unsupportedSchemaVersion(found: 99, supported: 1...1).description
                 == "Profile schemaVersion 99 is not supported by this build, which understands version 1."
         )
+        #expect(
+            ProfileValidationError.unknownBindingKind(control: "cross", kind: "toggle").description
+                == #"Binding for "cross" uses unknown kind "toggle". Use "hold", "tap", or "tapSequence"."#
+        )
     }
 
     @Test("a profile summary describes bindings for diagnostics")
@@ -168,7 +221,10 @@ struct ControllerProfileTests {
         let summary = ControllerProfile.starterTerminal.summaryLines
         #expect(summary.contains("cross -> tap return"))
         #expect(summary.contains("l2 -> hold control+option+space"))
-        #expect(summary.contains("r3 -> tap control+c"))
+        #expect(summary.contains("r3 -> tap control+s"))
+        // A sequence has to be readable here too, or the CLI cannot explain what
+        // a shoulder button will actually send.
+        #expect(summary.contains("r1 -> tapSequence control+b, n"))
         #expect(summary == summary.sorted())
     }
 }
