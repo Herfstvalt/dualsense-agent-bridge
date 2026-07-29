@@ -29,12 +29,44 @@ struct CommandLineTests {
     @Test("a profile path can be supplied to doctor, profile, and run")
     func profilePathIsAccepted() throws {
         #expect(try BridgeCommand(parsing: ["doctor", "--profile", "p.json"]) == .doctor(profilePath: "p.json"))
-        #expect(try BridgeCommand(parsing: ["profile", "--profile", "p.json"]) == .printProfile(profilePath: "p.json"))
+        #expect(
+            try BridgeCommand(parsing: ["profile", "--profile", "p.json"])
+                == .printProfile(profilePath: "p.json", starterOnly: false)
+        )
         #expect(
             try BridgeCommand(parsing: ["run", "--profile", "p.json"])
                 == .run(RunOptions(profilePath: "p.json", dryRun: false))
         )
         #expect(try BridgeCommand(parsing: ["run", "--profile=p.json"]) == .run(RunOptions(profilePath: "p.json")))
+    }
+
+    @Test("profile --starter exports the built-in profile without reading a file")
+    func starterOnlyExport() throws {
+        #expect(
+            try BridgeCommand(parsing: ["profile", "--starter"])
+                == .printProfile(profilePath: nil, starterOnly: true)
+        )
+    }
+
+    @Test("--starter and --profile together are refused instead of silently ranked")
+    func starterAndProfileConflict() {
+        #expect(throws: CommandLineError.conflictingOptions("--starter", "--profile")) {
+            try BridgeCommand(parsing: ["profile", "--starter", "--profile", "p.json"])
+        }
+        #expect(
+            CommandLineError.conflictingOptions("--starter", "--profile").description
+                == #"Options "--starter" and "--profile" cannot be combined."#
+        )
+    }
+
+    @Test("--starter only applies to the profile command")
+    func starterIsProfileOnly() {
+        #expect(throws: CommandLineError.unknownOption(command: "run", option: "--starter")) {
+            try BridgeCommand(parsing: ["run", "--starter"])
+        }
+        #expect(throws: CommandLineError.unknownOption(command: "doctor", option: "--starter")) {
+            try BridgeCommand(parsing: ["doctor", "--starter"])
+        }
     }
 
     @Test("run supports a dry run that emits no synthetic keys")
@@ -83,7 +115,23 @@ struct CommandLineTests {
             #expect(usage.contains(command))
         }
         #expect(usage.contains("--dry-run"))
+        #expect(usage.contains("--starter"))
         #expect(!usage.contains("/Users/"))
+    }
+
+    @Test("usage text tells the user to redirect an export through a temporary file")
+    func usageTextDocumentsSafeExport() {
+        let usage = BridgeCommand.usageText
+
+        // Redirecting straight onto the default path truncates the file that
+        // this command may be about to read.
+        #expect(usage.contains("profile --starter > /tmp/dualsense-profile.json"))
+        #expect(usage.contains("mv /tmp/dualsense-profile.json"))
+    }
+
+    @Test("usage text warns that the bridge needs its own terminal")
+    func usageTextDocumentsFocus() {
+        #expect(BridgeCommand.usageText.contains("separate terminal"))
     }
 
     @Test("the controls listing names every supported control")

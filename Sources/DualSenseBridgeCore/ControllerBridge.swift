@@ -18,16 +18,17 @@ public struct BridgeStep: Hashable, Sendable, CustomStringConvertible {
 public struct BridgeDiagnostics: Hashable, Sendable {
     public let profileName: String
     public let bindingSummary: [String]
+    /// Controllers this bridge has been told about. A report is only as truthful
+    /// as its input, so callers must feed in a real snapshot rather than assume
+    /// an idle bridge knows about attached hardware.
     public let connectedControllers: [ControllerIdentity]
     public let heldKeys: [String]
     public let accessibility: AccessibilityReport
-    public let isRunning: Bool
 
     public var text: String {
         var lines = [
             accessibility.headline,
             "Profile: \(profileName)",
-            "Running: \(isRunning ? "yes" : "no")",
             "Controllers: \(connectedControllers.isEmpty ? "none connected" : connectedControllers.map(\.description).joined(separator: ", "))",
             "Held keys: \(heldKeys.isEmpty ? "none" : heldKeys.joined(separator: ", "))",
             "Bindings:",
@@ -79,8 +80,7 @@ public final class ControllerBridge {
             bindingSummary: router.profile.summaryLines,
             connectedControllers: controllers,
             heldKeys: keyboard.heldKeys.map(\.canonicalName),
-            accessibility: keyboard.accessibilityReport,
-            isRunning: isRunning
+            accessibility: keyboard.accessibilityReport
         )
     }
 

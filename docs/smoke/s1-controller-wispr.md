@@ -20,13 +20,19 @@ transcripts, credentials, or absolute home paths into the results.
       bridge (System Settings > Privacy & Security > Accessibility).
 - [ ] A scratch directory and a long-running command available for the
       interrupt test. Never smoke-test against a session doing real work.
+- [ ] The bridge running in its own terminal window (or a background tmux
+      window), so focus can stay on the target session. Synthetic keys go to
+      the focused window; if the bridge's terminal has focus, Cross and R3 act
+      on the bridge's terminal instead of the agent session.
 
 ## 0. Baseline without hardware
 
 - [ ] `swift test` passes.
 - [ ] `swift build` succeeds.
-- [ ] `dualsense-bridge doctor` reports the profile, the binding list, and the
-      Accessibility state.
+- [ ] `dualsense-bridge doctor` reports the profile, the binding list, the
+      Accessibility state, and the controllers GameController currently sees.
+      With the controller off it says none are connected; with the controller on
+      it names it.
 - [ ] `dualsense-bridge run --dry-run` starts, prints the binding summary, and
       exits on Control-C with `Stopped; all synthetic keys released.`
 
@@ -73,6 +79,9 @@ With focus in a real terminal running an interactive agent session:
 
 ## 5. Interruption and cleanup
 
+Cleanup is never gated on Accessibility permission, so these cases must hold
+even if permission is revoked mid-hold.
+
 - [ ] While holding the hold control, turn the controller off (or unplug it).
       The bridge logs a disconnect and the held shortcut is released: Wispr
       Flow stops and no modifier stays latched.
@@ -83,13 +92,26 @@ With focus in a real terminal running an interactive agent session:
       plain characters appear, proving no modifier is stuck.
 - [ ] Reconnect the controller and confirm input works again without a stuck
       hold from the previous session.
+- [ ] While holding the hold control, revoke Accessibility permission and then
+      release the control. The key still comes up: typing afterwards produces
+      plain characters.
 
 ## 6. Configuration
 
-- [ ] `dualsense-bridge profile > ~/.config/dualsense-bridge/profile.json`,
-      change the hold shortcut to a different unique chord, change the same
+- [ ] Seed a profile safely, without redirecting onto the file the command may
+      read:
+
+      ```sh
+      dualsense-bridge profile --starter > /tmp/dualsense-profile.json
+      mkdir -p ~/.config/dualsense-bridge
+      mv /tmp/dualsense-profile.json ~/.config/dualsense-bridge/profile.json
+      ```
+
+- [ ] Change the hold shortcut to a different unique chord, change the same
       shortcut in Wispr Flow, and confirm press-to-talk still works with no
       rebuild.
+- [ ] Bind two controls to the same shortcut, hold both, release one, and
+      confirm dictation continues until the second is released.
 - [ ] Put a deliberate typo in the profile (for example `kind: "toggle"`) and
       confirm `dualsense-bridge doctor --profile <path>` refuses it and names
       the problem.

@@ -31,7 +31,7 @@ menu-bar shell or provider-specific transcript parsers.
 ```sh
 swift build
 swift run dualsense-bridge help            # commands and options
-swift run dualsense-bridge doctor          # permission, profile, and controller state
+swift run dualsense-bridge doctor          # permission, profile, attached controllers
 swift run dualsense-bridge controls        # control names accepted in a profile
 swift run dualsense-bridge profile         # print the active profile as JSON
 swift run dualsense-bridge run --dry-run   # log actions without emitting keys
@@ -39,7 +39,17 @@ swift run dualsense-bridge run             # bridge controller input to the keyb
 ```
 
 `run` refuses to start without Accessibility permission and prints the exact
-steps to grant it. Control-C or `kill` releases every synthetic key it holds.
+steps to grant it. Control-C or `kill` releases every synthetic key it holds,
+and so does a controller disconnect — even if Accessibility permission is
+revoked while a chord is down.
+
+### Run it in its own terminal
+
+The bridge emits ordinary keyboard events, so they land in whatever window has
+focus. Start it in a separate terminal window, a background tmux window, or with
+`&`, then focus the agent session or text field you actually want to control.
+If the bridge's own terminal is focused, Cross and R3 will act on that terminal
+instead.
 
 ### Starter profile
 
@@ -60,11 +70,15 @@ explanation.
 
 ### Changing the mapping
 
-Bindings are data, not code:
+Bindings are data, not code. Seed a profile with `--starter`, which prints the
+built-in profile without reading any file, and rename it into place. Do not
+redirect straight onto the destination: the shell truncates the target file
+before the command runs, which would destroy an existing profile.
 
 ```sh
+swift run dualsense-bridge profile --starter > /tmp/dualsense-profile.json
 mkdir -p ~/.config/dualsense-bridge
-swift run dualsense-bridge profile > ~/.config/dualsense-bridge/profile.json
+mv /tmp/dualsense-profile.json ~/.config/dualsense-bridge/profile.json
 ```
 
 Edit that file, then run `dualsense-bridge doctor` to validate it. A profile is

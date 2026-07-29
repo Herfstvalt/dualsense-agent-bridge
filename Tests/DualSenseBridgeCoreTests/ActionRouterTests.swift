@@ -148,19 +148,76 @@ struct ActionRouterTests {
         #expect(router.handle(.disconnected(controller)) == [.releaseAllHeldKeys])
     }
 
-    @Test("disconnect only releases the holds of the controller that left")
-    func disconnectIsScopedToOneController() {
+    @Test("the disconnected controller's holds are ended first, then the rest")
+    func disconnectEndsTheLeavingControllerFirst() {
+        var first = FakeControllerInput(id: "fake-1")
+        var second = FakeControllerInput(id: "fake-2")
+        var router = ActionRouter(profile: .starterTerminal)
+
+        _ = router.handle(first.press(.cross))
+        _ = router.handle(second.press(.l2))
+        _ = router.handle(first.press(.l2))
+        #expect(router.heldControlCount == 2)
+
+        let actions = router.handle(.disconnected(first.controller))
+
+        // Every hold is ended because the sweep releases every physical key;
+        // leaving a surviving hold recorded would desynchronize the router from
+        // the keyboard.
+        #expect(actions == [.endHold(wispr), .endHold(wispr), .releaseAllHeldKeys])
+        #expect(router.heldControlCount == 0)
+    }
+
+    @Test("a surviving controller can press again after another one disconnects")
+    func survivingControllerCanPressAgain() {
         var first = FakeControllerInput(id: "fake-1")
         var second = FakeControllerInput(id: "fake-2")
         var router = ActionRouter(profile: .starterTerminal)
 
         _ = router.handle(first.press(.l2))
         _ = router.handle(second.press(.l2))
+        _ = router.handle(.disconnected(first.controller))
+
+        // The stale release is harmless, and the next press starts a fresh hold
+        // rather than being swallowed as a duplicate.
+        #expect(router.handle(second.release(.l2)).isEmpty)
+        #expect(router.handle(second.press(.l2)) == [.beginHold(wispr)])
+        #expect(router.handle(second.release(.l2)) == [.endHold(wispr)])
+        #expect(router.heldControlCount == 0)
+    }
+
+    @Test("a controller that represses without releasing after a sweep still works")
+    func repressWithoutReleaseAfterSweep() {
+        var first = FakeControllerInput(id: "fake-1")
+        var second = FakeControllerInput(id: "fake-2")
+        var router = ActionRouter(profile: .starterTerminal)
+
+        _ = router.handle(second.press(.l2))
+        _ = router.handle(first.press(.cross))
+        _ = router.handle(.disconnected(first.controller))
+
+        #expect(router.handle(second.press(.l2)) == [.beginHold(wispr)])
+        #expect(router.heldControlCount == 1)
+    }
+
+    @Test("two controls bound to the same shortcut are tracked separately")
+    func twoControlsSharingOneShortcut() throws {
+        var input = FakeControllerInput()
+        let shared = try KeyStroke(parsing: "control+option+space")
+        var router = ActionRouter(
+            profile: ControllerProfile(
+                name: "shared",
+                bindings: [.l2: .hold(shared), .r2: .hold(shared)]
+            )
+        )
+
+        #expect(router.handle(input.press(.l2)) == [.beginHold(shared)])
+        #expect(router.handle(input.press(.r2)) == [.beginHold(shared)])
         #expect(router.heldControlCount == 2)
 
-        _ = router.handle(.disconnected(first.controller))
-        #expect(router.heldControlCount == 1)
-        #expect(router.handle(second.release(.l2)) == [.endHold(wispr)])
+        #expect(router.handle(input.release(.l2)) == [.endHold(shared)])
+        #expect(router.handle(input.release(.r2)) == [.endHold(shared)])
+        #expect(router.heldControlCount == 0)
     }
 
     @Test("shutdown releases every hold across controllers")

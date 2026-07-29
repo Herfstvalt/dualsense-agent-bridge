@@ -59,9 +59,27 @@ public final class GameControllerEventSource {
         handler = nil
     }
 
-    /// Controllers currently attached, for diagnostics.
+    /// Controllers currently attached to this running source.
     public var attachedControllers: [ControllerIdentity] {
         identities.values.sorted { $0.id < $1.id }
+    }
+
+    /// Reports the controllers GameController sees right now, without starting
+    /// the source or installing any handlers.
+    ///
+    /// `doctor` uses this so its controller line reflects reality instead of an
+    /// idle bridge that was never told about anything. Controllers that are
+    /// paired but powered off are correctly absent.
+    public static func connectedControllerSnapshot() -> [ControllerIdentity] {
+        GCController.controllers()
+            .filter { $0.extendedGamepad != nil }
+            .enumerated()
+            .map { index, controller in
+                ControllerIdentity(
+                    id: "controller-\(index + 1)",
+                    displayName: controller.vendorName ?? "Game Controller"
+                )
+            }
     }
 
     // MARK: - Attachment

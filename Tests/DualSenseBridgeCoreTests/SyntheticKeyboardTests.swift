@@ -170,7 +170,10 @@ struct SyntheticKeyboardTests {
         _ = keyboard.perform(.beginHold(wispr))
 
         #expect(keyboard.heldKeys.isEmpty)
-        #expect(keyboard.perform(.endHold(wispr)) == .refused(reason: AccessibilityReport(status: .denied).headline))
+        #expect(keyboard.heldOwnerCount == 0)
+        // Ending it is not refused - cleanup is never refused - but there is
+        // nothing to release because the press never happened.
+        #expect(keyboard.perform(.endHold(wispr)) == .noOutput)
         #expect(sink.emissions.isEmpty)
     }
 
@@ -218,6 +221,96 @@ struct SyntheticKeyboardTests {
         _ = keyboard.perform(.tap(KeyStroke(key: .c, modifiers: .control)))
 
         #expect(sink.transcript == ["down control", "down c", "up c", "up control"])
+    }
+
+    @Test("a hold survives permission being revoked and is still released")
+    func revokedPermissionStillReleasesHold() {
+        let sink = RecordingKeyboardSink()
+        nonisolated(unsafe) var status = AccessibilityStatus.granted
+        let keyboard = SyntheticKeyboard(sink: sink, accessibility: AccessibilityCapability { status })
+
+        _ = keyboard.perform(.beginHold(wispr))
+        status = .denied
+        sink.reset()
+
+        #expect(keyboard.perform(.endHold(wispr)) == .emitted)
+        #expect(sink.emissions == [.up(.space), .up(.option), .up(.control)])
+        #expect(keyboard.heldKeys.isEmpty)
+    }
+
+    @Test("release-all is never refused, because refusing it would latch a key")
+    func releaseAllIsNeverRefused() {
+        let sink = RecordingKeyboardSink()
+        nonisolated(unsafe) var status = AccessibilityStatus.granted
+        let keyboard = SyntheticKeyboard(sink: sink, accessibility: AccessibilityCapability { status })
+
+        _ = keyboard.perform(.beginHold(wispr))
+        status = .denied
+        sink.reset()
+
+        #expect(keyboard.perform(.releaseAllHeldKeys) == .emitted)
+        #expect(sink.emissions == [.up(.space), .up(.option), .up(.control)])
+        #expect(keyboard.heldKeys.isEmpty)
+    }
+
+    @Test("the direct shutdown release also ignores revoked permission")
+    func directReleaseIgnoresRevokedPermission() {
+        let sink = RecordingKeyboardSink()
+        nonisolated(unsafe) var status = AccessibilityStatus.granted
+        let keyboard = SyntheticKeyboard(sink: sink, accessibility: AccessibilityCapability { status })
+
+        _ = keyboard.perform(.beginHold(wispr))
+        status = .denied
+        sink.reset()
+        keyboard.releaseAllHeldKeys()
+
+        #expect(sink.emissions == [.up(.space), .up(.option), .up(.control)])
+        #expect(keyboard.heldKeys.isEmpty)
+    }
+
+    @Test("only actions that press keys are refused without permission")
+    func onlyPressingActionsAreRefused() {
+        let (keyboard, sink) = makeKeyboard(status: .denied)
+
+        #expect(keyboard.perform(.tap(KeyStroke(key: .return))).isRefusal)
+        #expect(keyboard.perform(.beginHold(wispr)).isRefusal)
+        #expect(keyboard.perform(.endHold(wispr)) == .noOutput)
+        #expect(keyboard.perform(.releaseAllHeldKeys) == .noOutput)
+        #expect(sink.emissions.isEmpty)
+    }
+
+    @Test("two holds of the same shortcut are reference counted")
+    func sameStrokeHoldsAreReferenceCounted() {
+        let (keyboard, sink) = makeKeyboard()
+
+        #expect(keyboard.perform(.beginHold(wispr)) == .emitted)
+        sink.reset()
+
+        #expect(keyboard.perform(.beginHold(wispr)) == .noOutput, "the chord is already down")
+        #expect(sink.emissions.isEmpty)
+        #expect(keyboard.heldKeys == [.control, .option, .space])
+
+        #expect(keyboard.perform(.endHold(wispr)) == .noOutput, "one owner remains")
+        #expect(sink.emissions.isEmpty)
+        #expect(keyboard.heldKeys == [.control, .option, .space])
+
+        #expect(keyboard.perform(.endHold(wispr)) == .emitted)
+        #expect(sink.emissions == [.up(.space), .up(.option), .up(.control)])
+        #expect(keyboard.heldKeys.isEmpty)
+    }
+
+    @Test("release-all clears every owner of a shared shortcut")
+    func releaseAllClearsSharedOwners() {
+        let (keyboard, sink) = makeKeyboard()
+
+        _ = keyboard.perform(.beginHold(wispr))
+        _ = keyboard.perform(.beginHold(wispr))
+        sink.reset()
+
+        #expect(keyboard.perform(.releaseAllHeldKeys) == .emitted)
+        #expect(sink.emissions == [.up(.space), .up(.option), .up(.control)])
+        #expect(keyboard.heldKeys.isEmpty)
+        #expect(keyboard.perform(.endHold(wispr)) == .noOutput, "no stale owner survives a sweep")
     }
 
     @Test("the logging sink reports what a dry run would have emitted")

@@ -145,6 +145,103 @@ struct ControllerBridgeTests {
         #expect(sink.emissions == wisprUp)
     }
 
+    @Test("a surviving controller gets a fresh chord after another one disconnects")
+    func survivorRepressesAfterDisconnect() {
+        var first = FakeControllerInput(id: "fake-1")
+        var second = FakeControllerInput(id: "fake-2", displayName: "Second DualSense")
+        let (bridge, sink) = makeBridge()
+
+        bridge.handle(.connected(first.controller))
+        bridge.handle(.connected(second.controller))
+        bridge.handle(first.press(.l2))
+        bridge.handle(second.press(.l2))
+        #expect(sink.emissions == wisprDown, "the chord is pressed once and shared")
+
+        sink.reset()
+        bridge.handle(.disconnected(first.controller))
+        #expect(sink.emissions == wisprUp)
+        #expect(bridge.heldKeys.isEmpty)
+
+        // The survivor's stale release is harmless and the next press must
+        // physically press the chord again rather than being swallowed.
+        sink.reset()
+        bridge.handle(second.release(.l2))
+        #expect(sink.emissions.isEmpty)
+
+        bridge.handle(second.press(.l2))
+        #expect(sink.emissions == wisprDown)
+        #expect(bridge.heldKeys == [.control, .option, .space])
+
+        bridge.handle(second.release(.l2))
+        #expect(bridge.heldKeys.isEmpty)
+    }
+
+    @Test("two controls bound to the same shortcut release independently")
+    func twoControlsSharingOneShortcut() throws {
+        var input = FakeControllerInput()
+        let shared = try KeyStroke(parsing: "control+option+space")
+        let (bridge, sink) = makeBridge(
+            profile: ControllerProfile(
+                name: "shared",
+                bindings: [.l2: .hold(shared), .r2: .hold(shared)]
+            )
+        )
+
+        bridge.handle(input.press(.l2))
+        bridge.handle(input.press(.r2))
+        #expect(sink.emissions == wisprDown)
+
+        sink.reset()
+        bridge.handle(input.release(.l2))
+        #expect(sink.emissions.isEmpty, "the other control still holds the chord")
+        #expect(bridge.heldKeys == [.control, .option, .space])
+
+        bridge.handle(input.release(.r2))
+        #expect(sink.emissions == wisprUp)
+        #expect(bridge.heldKeys.isEmpty)
+    }
+
+    @Test("a disconnect releases the chord even if permission was revoked mid-hold")
+    func disconnectReleasesAfterPermissionRevoked() {
+        var input = FakeControllerInput()
+        let sink = RecordingKeyboardSink()
+        nonisolated(unsafe) var status = AccessibilityStatus.granted
+        let bridge = ControllerBridge(
+            profile: .starterTerminal,
+            keyboard: SyntheticKeyboard(sink: sink, accessibility: AccessibilityCapability { status })
+        )
+
+        bridge.handle(.connected(input.controller))
+        bridge.handle(input.press(.l2))
+        status = .denied
+        sink.reset()
+
+        bridge.handle(.disconnected(input.controller))
+
+        #expect(sink.emissions == wisprUp, "cleanup must never be refused")
+        #expect(bridge.heldKeys.isEmpty)
+    }
+
+    @Test("shutdown releases the chord even if permission was revoked mid-hold")
+    func shutdownReleasesAfterPermissionRevoked() {
+        var input = FakeControllerInput()
+        let sink = RecordingKeyboardSink()
+        nonisolated(unsafe) var status = AccessibilityStatus.granted
+        let bridge = ControllerBridge(
+            profile: .starterTerminal,
+            keyboard: SyntheticKeyboard(sink: sink, accessibility: AccessibilityCapability { status })
+        )
+
+        bridge.handle(input.press(.l2))
+        status = .denied
+        sink.reset()
+
+        bridge.shutdown()
+
+        #expect(sink.emissions == wisprUp)
+        #expect(bridge.heldKeys.isEmpty)
+    }
+
     @Test("without permission nothing is emitted and the refusal is reported")
     func refusesWithoutPermission() {
         var input = FakeControllerInput()
@@ -208,6 +305,17 @@ struct ControllerBridgeTests {
         #expect(diagnostics.bindingSummary.contains("cross -> tap return"))
         #expect(diagnostics.text.contains("Profile: starter-terminal"))
         #expect(diagnostics.text.contains("Held keys: control, option, space"))
+        #expect(diagnostics.text.contains("Controllers: Fake DualSense (fake-1)"))
+    }
+
+    @Test("diagnostics never claim a run loop is active")
+    func diagnosticsDoNotClaimToBeRunning() {
+        let (bridge, _) = makeBridge()
+
+        // An idle bridge built only to report state must not print a line that
+        // reads as though input is being handled.
+        #expect(!bridge.diagnostics.text.contains("Running"))
+        #expect(bridge.diagnostics.text.contains("Controllers: none connected"))
     }
 
     @Test("swapping profiles mid-session releases the previous hold")

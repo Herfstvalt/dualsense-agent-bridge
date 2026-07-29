@@ -18,8 +18,8 @@ struct CommandRunner {
             print(BridgeCommand.controlsText)
         case .doctor(let path):
             try doctor(profilePath: path)
-        case .printProfile(let path):
-            try printProfile(profilePath: path)
+        case .printProfile(let path, let starterOnly):
+            try printProfile(profilePath: path, starterOnly: starterOnly)
         case .run(let options):
             try startBridge(options: options)
         }
@@ -32,14 +32,31 @@ struct CommandRunner {
         let keyboard = SyntheticKeyboard(sink: LoggingKeyboardSink { _ in }, accessibility: .system)
         let bridge = ControllerBridge(profile: profile, keyboard: keyboard)
 
+        // Report what GameController actually sees, so the controller line is
+        // not a claim about an idle bridge.
+        let attached = GameControllerEventSource.connectedControllerSnapshot()
+        for controller in attached {
+            bridge.handle(.connected(controller))
+        }
+
         print(bridge.diagnostics.text)
         print("")
+        if attached.isEmpty {
+            print("No controller is reporting to GameController right now.")
+            print("Turn the DualSense on (PS button) or connect it by USB, then re-run doctor.")
+        }
         print("Wispr Flow: set its shortcut to the same keys as the hold binding above.")
-        print("Controllers are discovered while \"dualsense-bridge run\" is active.")
+        print("Run the bridge in a separate terminal so Cross, Circle, and R3 reach the")
+        print("focused agent session rather than the bridge's own terminal.")
     }
 
-    private func printProfile(profilePath: String?) throws {
-        let profile = try loader.loadPreferringDefaultLocation(path: profilePath)
+    private func printProfile(profilePath: String?, starterOnly: Bool) throws {
+        // --starter never reads a file, so redirecting its output cannot be
+        // corrupted by the shell truncating the profile first.
+        let profile =
+            starterOnly
+            ? ControllerProfile.starterTerminal
+            : try loader.loadPreferringDefaultLocation(path: profilePath)
         let json = try profile.encodedJSON()
         print(String(decoding: json, as: UTF8.self))
     }
@@ -78,6 +95,8 @@ struct CommandRunner {
         for line in profile.summaryLines {
             print("  \(line)")
         }
+        print("Keep this terminal in the background: keys go to the focused window,")
+        print("so focus the agent session or text field you want to control.")
         print("Waiting for a controller. Press Control-C to stop and release all keys.")
 
         let source = GameControllerEventSource()

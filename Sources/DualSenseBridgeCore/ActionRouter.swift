@@ -60,10 +60,15 @@ public struct ActionRouter: Sendable {
         case .button(let event):
             return handle(event)
         case .connected(let controller):
-            // A reconnect can never inherit holds from a previous session.
+            // A reconnect can never inherit holds from a previous session. This
+            // is scoped rather than global precisely because it does not sweep.
             return endHolds(for: controller)
         case .disconnected(let controller):
-            return endHolds(for: controller) + [.releaseAllHeldKeys]
+            // The leaving controller's holds end first so the log reads in the
+            // right order, then every remaining hold ends too: the sweep below
+            // releases every physical key, so keeping any hold recorded would
+            // leave the router claiming a key that is no longer down.
+            return endHolds(for: controller) + endAllHolds() + [.releaseAllHeldKeys]
         case .shutdown:
             return endAllHolds() + [.releaseAllHeldKeys]
         }

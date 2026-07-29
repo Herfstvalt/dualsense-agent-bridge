@@ -16,6 +16,7 @@ public enum CommandLineError: Error, Hashable, Sendable, CustomStringConvertible
     case unknownCommand(String)
     case unknownOption(command: String, option: String)
     case missingValue(String)
+    case conflictingOptions(String, String)
 
     public var description: String {
         switch self {
@@ -25,6 +26,8 @@ public enum CommandLineError: Error, Hashable, Sendable, CustomStringConvertible
             #"Command "\#(command)" does not accept the option "\#(option)"."#
         case .missingValue(let option):
             #"Option "\#(option)" needs a value, for example --profile ~/.config/dualsense-bridge/profile.json."#
+        case .conflictingOptions(let first, let second):
+            #"Options "\#(first)" and "\#(second)" cannot be combined."#
         }
     }
 }
@@ -35,7 +38,9 @@ public enum BridgeCommand: Hashable, Sendable {
     case version
     case controls
     case doctor(profilePath: String?)
-    case printProfile(profilePath: String?)
+    /// Print a profile. `starterOnly` prints the built-in profile without
+    /// reading any file, which is the safe way to seed a new profile.
+    case printProfile(profilePath: String?, starterOnly: Bool)
     case run(RunOptions)
 
     /// Parses arguments with the program name already removed.
@@ -54,30 +59,32 @@ public enum BridgeCommand: Hashable, Sendable {
         case "controls":
             self = .controls
         case "doctor":
-            self = .doctor(profilePath: try Self.parseProfilePath(rest, command: "doctor"))
+            let parsed = try Self.parseOptions(rest, command: "doctor")
+            self = .doctor(profilePath: parsed.profilePath)
         case "profile":
-            self = .printProfile(profilePath: try Self.parseProfilePath(rest, command: "profile"))
+            let parsed = try Self.parseOptions(rest, command: "profile", allowStarter: true)
+            self = .printProfile(profilePath: parsed.profilePath, starterOnly: parsed.starterOnly)
         case "run":
-            self = .run(try Self.parseRunOptions(rest))
+            let parsed = try Self.parseOptions(rest, command: "run", allowDryRun: true)
+            self = .run(RunOptions(profilePath: parsed.profilePath, dryRun: parsed.dryRun))
         default:
             throw CommandLineError.unknownCommand(first)
         }
     }
 
-    private static func parseProfilePath(_ arguments: [String], command: String) throws -> String? {
-        try parseOptions(arguments, command: command, allowDryRun: false).profilePath
-    }
-
-    private static func parseRunOptions(_ arguments: [String]) throws -> RunOptions {
-        try parseOptions(arguments, command: "run", allowDryRun: true)
+    private struct ParsedOptions {
+        var profilePath: String?
+        var dryRun = false
+        var starterOnly = false
     }
 
     private static func parseOptions(
         _ arguments: [String],
         command: String,
-        allowDryRun: Bool
-    ) throws -> RunOptions {
-        var options = RunOptions()
+        allowDryRun: Bool = false,
+        allowStarter: Bool = false
+    ) throws -> ParsedOptions {
+        var options = ParsedOptions()
         var index = arguments.startIndex
 
         while index < arguments.endIndex {
@@ -95,11 +102,17 @@ public enum BridgeCommand: Hashable, Sendable {
                 options.profilePath = value
             } else if argument == "--dry-run", allowDryRun {
                 options.dryRun = true
+            } else if argument == "--starter", allowStarter {
+                options.starterOnly = true
             } else {
                 throw CommandLineError.unknownOption(command: command, option: argument)
             }
 
             index += 1
+        }
+
+        if options.starterOnly, options.profilePath != nil {
+            throw CommandLineError.conflictingOptions("--starter", "--profile")
         }
 
         return options
@@ -114,16 +127,28 @@ extension BridgeCommand {
           dualsense-bridge help                 Show this message
           dualsense-bridge version              Print the version
           dualsense-bridge controls             List controller control names
-          dualsense-bridge doctor  [options]    Report permission, profile, and controller state
-          dualsense-bridge profile [options]    Print the active profile as JSON
+          dualsense-bridge doctor  [options]    Report permission, profile, and attached controllers
+          dualsense-bridge profile [options]    Print a profile as JSON
           dualsense-bridge run     [options]    Bridge controller input to keyboard actions
 
         Options:
           --profile <path>   Load bindings from a profile JSON file
+          --starter          Print the built-in profile without reading a file (profile only)
           --dry-run          Log actions instead of emitting synthetic keys (run only)
 
-        Without --profile the built-in starter profile is used. Copy it with
-        "dualsense-bridge profile" and save it to ~/\(ProfileLoader.defaultRelativePath).
+        Without --profile the built-in starter profile is used.
+
+        Seed a profile without truncating the file being read; shell redirection
+        empties the target before this command runs, so write a temporary file
+        and rename it into place:
+
+          dualsense-bridge profile --starter > /tmp/dualsense-profile.json
+          mkdir -p ~/.config/dualsense-bridge
+          mv /tmp/dualsense-profile.json ~/\(ProfileLoader.defaultRelativePath)
+
+        Run the bridge in a separate terminal or in the background. Cross,
+        Circle, and R3 go to whatever window has focus, so the target agent
+        session or text field must be focused, not the bridge's own terminal.
         """
 
     public static var controlsText: String {

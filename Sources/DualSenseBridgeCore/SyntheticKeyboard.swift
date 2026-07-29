@@ -2,9 +2,11 @@
 public enum KeyboardOutcome: Hashable, Sendable, CustomStringConvertible {
     /// The action produced synthetic key events.
     case emitted
-    /// The action was understood but needed no key events.
+    /// The action was applied but needed no key events, either because there
+    /// was nothing to do or because another owner already holds the chord.
     case noOutput
     /// Output was withheld because the Accessibility capability is unavailable.
+    /// Only actions that press keys can be refused; cleanup never is.
     case refused(reason: String)
     /// The sink rejected an event; anything partially pressed was released.
     case failed(reason: String)
@@ -27,10 +29,22 @@ public enum KeyboardOutcome: Hashable, Sendable, CustomStringConvertible {
 /// Applies routed actions to a keyboard sink while guaranteeing that every key
 /// it presses is eventually released.
 ///
-/// Held keys are reference counted, so two holds that share a modifier do not
-/// fight over it, and a sweep can always unwind in reverse press order.
+/// Two invariants drive this type:
+///
+/// - Physical keys are reference counted, so several holds may share a chord (or
+///   a modifier) without fighting over it, and a sweep can always unwind in
+///   reverse press order.
+/// - Releasing is never gated on Accessibility permission. Permission can be
+///   revoked while a chord is down, and refusing the release would latch a key
+///   on the user's machine.
 public final class SyntheticKeyboard {
     private static let sinkFailureReason = "the keyboard sink rejected a synthetic key event"
+
+    private enum PressResult {
+        case emitted
+        case alreadyDown
+        case failed
+    }
 
     private let sink: any KeyboardSink
     private let accessibility: AccessibilityCapability
@@ -38,9 +52,10 @@ public final class SyntheticKeyboard {
     /// Keys currently down, oldest first, with a press count per key.
     private var pressOrder: [KeyCode] = []
     private var pressCounts: [KeyCode: Int] = [:]
-    /// Physical keys owed to each active hold, so ending one hold releases
-    /// exactly what that hold contributed.
-    private var holdContributions: [KeyStroke: [KeyCode]] = [:]
+    /// Physical keys owed to each active hold. A stroke maps to one entry per
+    /// active owner, so two controls or two controllers bound to the same
+    /// shortcut release independently.
+    private var holdContributions: [KeyStroke: [[KeyCode]]] = [:]
 
     public init(sink: any KeyboardSink, accessibility: AccessibilityCapability) {
         self.sink = sink
@@ -49,6 +64,11 @@ public final class SyntheticKeyboard {
 
     /// Keys the bridge believes are held, in press order.
     public var heldKeys: [KeyCode] { pressOrder }
+
+    /// How many hold owners are currently tracked, for diagnostics and tests.
+    public var heldOwnerCount: Int {
+        holdContributions.values.reduce(0) { $0 + $1.count }
+    }
 
     /// The current permission report, for CLI diagnostics.
     public var accessibilityReport: AccessibilityReport {
@@ -62,32 +82,38 @@ public final class SyntheticKeyboard {
 
     @discardableResult
     public func perform(_ action: BridgeAction) -> KeyboardOutcome {
-        if case .unmapped = action { return .noOutput }
-
-        let report = accessibilityReport
-        guard report.isUsable else {
-            return .refused(reason: report.headline)
-        }
-
         switch action {
-        case .tap(let stroke):
-            return tap(stroke)
-        case .beginHold(let stroke):
-            return beginHold(stroke)
-        case .endHold(let stroke):
-            return endHold(stroke)
-        case .releaseAllHeldKeys:
-            return pressOrder.isEmpty ? .noOutput : sweep()
         case .unmapped:
             return .noOutput
+        case .tap(let stroke):
+            if let refusal = pressRefusal() { return refusal }
+            return tap(stroke)
+        case .beginHold(let stroke):
+            if let refusal = pressRefusal() { return refusal }
+            return beginHold(stroke)
+        case .endHold(let stroke):
+            // Never refused: a chord that is already down must come back up.
+            return endHold(stroke)
+        case .releaseAllHeldKeys:
+            guard !pressOrder.isEmpty || !holdContributions.isEmpty else { return .noOutput }
+            return sweep()
         }
     }
 
     /// Releases everything still held. Safe to call during shutdown even when
     /// permission has since been revoked; bookkeeping is cleared either way.
     public func releaseAllHeldKeys() {
-        guard !pressOrder.isEmpty else { return }
+        guard !pressOrder.isEmpty || !holdContributions.isEmpty else { return }
         _ = sweep()
+    }
+
+    // MARK: - Permission
+
+    /// A refusal for actions that would press a key, or nil when allowed.
+    private func pressRefusal() -> KeyboardOutcome? {
+        let report = accessibilityReport
+        guard report.isUsable else { return .refused(reason: report.headline) }
+        return nil
     }
 
     // MARK: - Actions
@@ -95,39 +121,55 @@ public final class SyntheticKeyboard {
     private func tap(_ stroke: KeyStroke) -> KeyboardOutcome {
         var pressed: [KeyCode] = []
         for key in stroke.physicalKeysInPressOrder {
-            guard press(key) else {
-                unwind(pressed)
+            switch press(key) {
+            case .emitted, .alreadyDown:
+                pressed.append(key)
+            case .failed:
+                _ = unwind(pressed)
                 return .failed(reason: Self.sinkFailureReason)
             }
-            pressed.append(key)
         }
-        unwind(pressed)
-        return .emitted
+        let result = unwind(pressed)
+        return result.succeeded ? .emitted : .failed(reason: Self.sinkFailureReason)
     }
 
     private func beginHold(_ stroke: KeyStroke) -> KeyboardOutcome {
-        guard holdContributions[stroke] == nil else { return .noOutput }
-
         var pressed: [KeyCode] = []
+        var emittedAnything = false
+
         for key in stroke.physicalKeysInPressOrder {
-            guard press(key) else {
-                unwind(pressed)
+            switch press(key) {
+            case .emitted:
+                emittedAnything = true
+                pressed.append(key)
+            case .alreadyDown:
+                pressed.append(key)
+            case .failed:
+                _ = unwind(pressed)
                 return .failed(reason: Self.sinkFailureReason)
             }
-            pressed.append(key)
         }
-        holdContributions[stroke] = pressed
-        return .emitted
+
+        holdContributions[stroke, default: []].append(pressed)
+        return emittedAnything ? .emitted : .noOutput
     }
 
     private func endHold(_ stroke: KeyStroke) -> KeyboardOutcome {
-        guard let pressed = holdContributions.removeValue(forKey: stroke) else {
+        guard var owners = holdContributions[stroke], let pressed = owners.popLast() else {
             return .noOutput
         }
-        return unwind(pressed) ? .emitted : .failed(reason: Self.sinkFailureReason)
+        if owners.isEmpty {
+            holdContributions[stroke] = nil
+        } else {
+            holdContributions[stroke] = owners
+        }
+
+        let result = unwind(pressed)
+        guard result.succeeded else { return .failed(reason: Self.sinkFailureReason) }
+        return result.released ? .emitted : .noOutput
     }
 
-    /// Releases every held key in reverse press order and forgets all holds.
+    /// Releases every held key in reverse press order and forgets all owners.
     private func sweep() -> KeyboardOutcome {
         let keys = pressOrder
         holdContributions.removeAll()
@@ -144,28 +186,35 @@ public final class SyntheticKeyboard {
 
     // MARK: - Held-key bookkeeping
 
-    private func press(_ key: KeyCode) -> Bool {
+    private func press(_ key: KeyCode) -> PressResult {
         let alreadyDown = (pressCounts[key] ?? 0) > 0
         if !alreadyDown {
             do {
                 try sink.keyDown(key)
             } catch {
-                return false
+                return .failed
             }
             pressOrder.append(key)
         }
         pressCounts[key, default: 0] += 1
-        return true
+        return alreadyDown ? .alreadyDown : .emitted
     }
 
     /// Releases the given keys in reverse order, honoring reference counts.
-    @discardableResult
-    private func unwind(_ keys: [KeyCode]) -> Bool {
+    /// Reports whether any key physically came up and whether the sink agreed.
+    private func unwind(_ keys: [KeyCode]) -> (released: Bool, succeeded: Bool) {
+        var released = false
         var succeeded = true
+
         for key in keys.reversed() {
             guard let count = pressCounts[key], count > 0 else { continue }
             if count == 1 {
-                do { try sink.keyUp(key) } catch { succeeded = false }
+                do {
+                    try sink.keyUp(key)
+                    released = true
+                } catch {
+                    succeeded = false
+                }
                 pressCounts[key] = nil
                 if let index = pressOrder.lastIndex(of: key) {
                     pressOrder.remove(at: index)
@@ -174,6 +223,7 @@ public final class SyntheticKeyboard {
                 pressCounts[key] = count - 1
             }
         }
-        return succeeded
+
+        return (released, succeeded)
     }
 }
