@@ -205,15 +205,15 @@ struct ControllerBridgeTests {
     func disconnectReleasesAfterPermissionRevoked() {
         var input = FakeControllerInput()
         let sink = RecordingKeyboardSink()
-        nonisolated(unsafe) var status = AccessibilityStatus.granted
+        let permission = MutableAccessibility(.granted)
         let bridge = ControllerBridge(
             profile: .starterTerminal,
-            keyboard: SyntheticKeyboard(sink: sink, accessibility: AccessibilityCapability { status })
+            keyboard: SyntheticKeyboard(sink: sink, accessibility: permission.capability)
         )
 
         bridge.handle(.connected(input.controller))
         bridge.handle(input.press(.l2))
-        status = .denied
+        permission.revoke()
         sink.reset()
 
         bridge.handle(.disconnected(input.controller))
@@ -226,14 +226,14 @@ struct ControllerBridgeTests {
     func shutdownReleasesAfterPermissionRevoked() {
         var input = FakeControllerInput()
         let sink = RecordingKeyboardSink()
-        nonisolated(unsafe) var status = AccessibilityStatus.granted
+        let permission = MutableAccessibility(.granted)
         let bridge = ControllerBridge(
             profile: .starterTerminal,
-            keyboard: SyntheticKeyboard(sink: sink, accessibility: AccessibilityCapability { status })
+            keyboard: SyntheticKeyboard(sink: sink, accessibility: permission.capability)
         )
 
         bridge.handle(input.press(.l2))
-        status = .denied
+        permission.revoke()
         sink.reset()
 
         bridge.shutdown()
@@ -270,11 +270,11 @@ struct ControllerBridgeTests {
     func logsEveryInput() {
         var input = FakeControllerInput()
         let sink = RecordingKeyboardSink()
-        nonisolated(unsafe) var lines: [String] = []
+        let collector = LineCollector()
         let bridge = ControllerBridge(
             profile: .starterTerminal,
             keyboard: SyntheticKeyboard(sink: sink, accessibility: .fixed(.granted)),
-            log: { lines.append($0) }
+            log: { collector.append($0) }
         )
 
         bridge.handle(.connected(input.controller))
@@ -282,6 +282,7 @@ struct ControllerBridgeTests {
         bridge.handle(input.release(.l2))
         bridge.shutdown()
 
+        let lines = collector.lines
         #expect(lines.contains("connected Fake DualSense (fake-1)"))
         #expect(lines.contains("l2 pressed: beginHold(control+option+space) -> emitted"))
         #expect(lines.contains("l2 released: endHold(control+option+space) -> emitted"))

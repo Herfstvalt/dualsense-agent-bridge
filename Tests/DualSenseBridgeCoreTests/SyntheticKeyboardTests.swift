@@ -180,11 +180,11 @@ struct SyntheticKeyboardTests {
     @Test("permission that arrives later is picked up without restarting")
     func permissionIsCheckedPerAction() {
         let sink = RecordingKeyboardSink()
-        nonisolated(unsafe) var status = AccessibilityStatus.denied
-        let keyboard = SyntheticKeyboard(sink: sink, accessibility: AccessibilityCapability { status })
+        let permission = MutableAccessibility(.denied)
+        let keyboard = SyntheticKeyboard(sink: sink, accessibility: permission.capability)
 
         #expect(keyboard.perform(.tap(KeyStroke(key: .return))).isRefusal)
-        status = .granted
+        permission.grant()
         #expect(keyboard.perform(.tap(KeyStroke(key: .return))) == .emitted)
         #expect(sink.emissions == [.down(.return), .up(.return)])
     }
@@ -226,11 +226,11 @@ struct SyntheticKeyboardTests {
     @Test("a hold survives permission being revoked and is still released")
     func revokedPermissionStillReleasesHold() {
         let sink = RecordingKeyboardSink()
-        nonisolated(unsafe) var status = AccessibilityStatus.granted
-        let keyboard = SyntheticKeyboard(sink: sink, accessibility: AccessibilityCapability { status })
+        let permission = MutableAccessibility(.granted)
+        let keyboard = SyntheticKeyboard(sink: sink, accessibility: permission.capability)
 
         _ = keyboard.perform(.beginHold(wispr))
-        status = .denied
+        permission.revoke()
         sink.reset()
 
         #expect(keyboard.perform(.endHold(wispr)) == .emitted)
@@ -241,11 +241,11 @@ struct SyntheticKeyboardTests {
     @Test("release-all is never refused, because refusing it would latch a key")
     func releaseAllIsNeverRefused() {
         let sink = RecordingKeyboardSink()
-        nonisolated(unsafe) var status = AccessibilityStatus.granted
-        let keyboard = SyntheticKeyboard(sink: sink, accessibility: AccessibilityCapability { status })
+        let permission = MutableAccessibility(.granted)
+        let keyboard = SyntheticKeyboard(sink: sink, accessibility: permission.capability)
 
         _ = keyboard.perform(.beginHold(wispr))
-        status = .denied
+        permission.revoke()
         sink.reset()
 
         #expect(keyboard.perform(.releaseAllHeldKeys) == .emitted)
@@ -256,11 +256,11 @@ struct SyntheticKeyboardTests {
     @Test("the direct shutdown release also ignores revoked permission")
     func directReleaseIgnoresRevokedPermission() {
         let sink = RecordingKeyboardSink()
-        nonisolated(unsafe) var status = AccessibilityStatus.granted
-        let keyboard = SyntheticKeyboard(sink: sink, accessibility: AccessibilityCapability { status })
+        let permission = MutableAccessibility(.granted)
+        let keyboard = SyntheticKeyboard(sink: sink, accessibility: permission.capability)
 
         _ = keyboard.perform(.beginHold(wispr))
-        status = .denied
+        permission.revoke()
         sink.reset()
         keyboard.releaseAllHeldKeys()
 
@@ -315,15 +315,15 @@ struct SyntheticKeyboardTests {
 
     @Test("the logging sink reports what a dry run would have emitted")
     func loggingSinkDescribesEmissions() {
-        nonisolated(unsafe) var lines: [String] = []
+        let collector = LineCollector()
         let keyboard = SyntheticKeyboard(
-            sink: LoggingKeyboardSink { lines.append($0) },
+            sink: LoggingKeyboardSink { collector.append($0) },
             accessibility: .fixed(.granted)
         )
 
         _ = keyboard.perform(.tap(KeyStroke(key: .return)))
 
-        #expect(lines == ["down return", "up return"])
+        #expect(collector.lines == ["down return", "up return"])
         #expect(keyboard.heldKeys.isEmpty)
     }
 }
