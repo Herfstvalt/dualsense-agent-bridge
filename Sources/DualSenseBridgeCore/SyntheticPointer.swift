@@ -27,6 +27,32 @@ public enum NavigationOutcome: Hashable, Sendable, CustomStringConvertible {
     }
 }
 
+/// What happened when a pointer-button action reached the boundary.
+///
+/// Mirrors `KeyboardOutcome`, including the rule that only actions which *press*
+/// something can be refused.
+public enum PointerButtonOutcome: Hashable, Sendable, CustomStringConvertible {
+    case emitted
+    /// Applied, but no event was needed: the button was already in that state.
+    case noOutput
+    case refused(reason: String)
+    case failed(reason: String)
+
+    public var isRefusal: Bool {
+        if case .refused = self { return true }
+        return false
+    }
+
+    public var description: String {
+        switch self {
+        case .emitted: "emitted"
+        case .noOutput: "no output"
+        case .refused(let reason): "refused: \(reason)"
+        case .failed(let reason): "failed: \(reason)"
+        }
+    }
+}
+
 /// Applies navigation output to a pointer sink in whole units.
 ///
 /// Two concerns live here and nowhere else:
@@ -88,6 +114,7 @@ public final class SyntheticPointer {
     private let accessibility: AccessibilityCapability
     private var pointerRemainder = Remainder()
     private var scrollRemainder = Remainder()
+    private var rightButtonIsDown = false
 
     public init(sink: any PointerSink, accessibility: AccessibilityCapability) {
         self.sink = sink
@@ -127,9 +154,67 @@ public final class SyntheticPointer {
     /// Called whenever motion stops for any reason — release, disconnect,
     /// shutdown, or a settings change — so the next push starts from rest
     /// instead of inheriting a stale fraction of a pixel.
+    ///
+    /// This deliberately does **not** release a held button. Motion stopping is
+    /// routine and happens every time a stick returns to centre; a button that
+    /// came up every time the user paused mid-drag would make dragging useless.
     public func reset() {
         pointerRemainder.reset()
         scrollRemainder.reset()
+    }
+
+    // MARK: - Buttons
+
+    /// Whether the right button is physically down as far as this boundary knows.
+    public var isRightButtonDown: Bool { rightButtonIsDown }
+
+    @discardableResult
+    public func perform(_ action: PointerButtonAction) -> PointerButtonOutcome {
+        switch action {
+        case .pressRightButton:
+            let report = accessibilityReport
+            guard report.isUsable else { return .refused(reason: report.headline) }
+            return setRightButton(down: true)
+        case .releaseRightButton:
+            // Never refused: a button that is already down must come back up.
+            return setRightButton(down: false)
+        case .releaseAllPointerButtons:
+            guard rightButtonIsDown else { return .noOutput }
+            return setRightButton(down: false)
+        }
+    }
+
+    /// Releases every pointer button still held.
+    ///
+    /// Safe to call during shutdown even when permission has since been revoked;
+    /// the bookkeeping is cleared either way, because refusing the release would
+    /// latch a mouse button on the user's machine.
+    public func releaseAllPointerButtons() {
+        guard rightButtonIsDown else { return }
+        _ = setRightButton(down: false)
+    }
+
+    private func setRightButton(down: Bool) -> PointerButtonOutcome {
+        guard rightButtonIsDown != down else { return .noOutput }
+
+        // Bookkeeping is settled before the sink is asked, and any failure settles
+        // it to "not down" whichever direction was attempted. Both mistakes are
+        // bad in their own way: believing a failed press succeeded makes the next
+        // press a no-op, so R2 stays dead for the rest of the session, while
+        // believing a failed release left the button down keeps promoting every
+        // stick push to a drag event for a button nobody is holding.
+        rightButtonIsDown = down
+        do {
+            if down {
+                try sink.pressRightButton()
+            } else {
+                try sink.releaseRightButton()
+            }
+        } catch {
+            rightButtonIsDown = false
+            return .failed(reason: Self.sinkFailureReason)
+        }
+        return .emitted
     }
 
     private func emit(

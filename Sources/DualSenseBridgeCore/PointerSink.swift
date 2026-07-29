@@ -3,12 +3,20 @@ import Foundation
 /// A single synthetic pointer event, in whole units.
 public enum PointerEmission: Hashable, Sendable, CustomStringConvertible {
     case move(dx: Int, dy: Int)
+    /// A move made while the right button is down. macOS needs a distinct event
+    /// type for this or applications do not track the drag at all.
+    case drag(dx: Int, dy: Int)
     case scroll(dx: Int, dy: Int)
+    case rightButtonDown
+    case rightButtonUp
 
     public var description: String {
         switch self {
         case .move(let dx, let dy): String(format: "move dx=%+d dy=%+d", dx, dy)
+        case .drag(let dx, let dy): String(format: "drag dx=%+d dy=%+d", dx, dy)
         case .scroll(let dx, let dy): String(format: "scroll dx=%+d dy=%+d", dx, dy)
+        case .rightButtonDown: "right button down"
+        case .rightButtonUp: "right button up"
         }
     }
 }
@@ -19,23 +27,39 @@ public enum PointerEmission: Hashable, Sendable, CustomStringConvertible {
 /// window-server sink and a log can honor. Turning a stick into deltas happens
 /// above this line; turning deltas into an absolute cursor position happens
 /// below it.
+/// Each method is one macOS pointer event, named per transition rather than
+/// taking a state flag, so a half-finished gesture can be unwound the same way
+/// `KeyboardSink` unwinds a half-pressed chord.
 public protocol PointerSink: AnyObject {
     func moveCursor(dx: Int, dy: Int) throws
     func scroll(dx: Int, dy: Int) throws
+    func pressRightButton() throws
+    func releaseRightButton() throws
 }
 
 /// A sink that records instead of emitting, used by fake-axis tests.
 public final class RecordingPointerSink: PointerSink {
     public private(set) var emissions: [PointerEmission] = []
+    private var rightButtonIsDown = false
 
     public init() {}
 
     public func moveCursor(dx: Int, dy: Int) throws {
-        emissions.append(.move(dx: dx, dy: dy))
+        emissions.append(rightButtonIsDown ? .drag(dx: dx, dy: dy) : .move(dx: dx, dy: dy))
     }
 
     public func scroll(dx: Int, dy: Int) throws {
         emissions.append(.scroll(dx: dx, dy: dy))
+    }
+
+    public func pressRightButton() throws {
+        rightButtonIsDown = true
+        emissions.append(.rightButtonDown)
+    }
+
+    public func releaseRightButton() throws {
+        rightButtonIsDown = false
+        emissions.append(.rightButtonUp)
     }
 
     /// Human-readable emissions for diagnostics.
@@ -95,7 +119,9 @@ public final class LoggingPointerSink: PointerSink {
     private let now: () -> Double
     private let log: (String) -> Void
     private var mouse = Window(label: "mouse")
+    private var drag = Window(label: "drag")
     private var wheel = Window(label: "scroll")
+    private var rightButtonIsDown = false
 
     public init(
         interval: Double = 0.5,
@@ -108,11 +134,36 @@ public final class LoggingPointerSink: PointerSink {
     }
 
     public func moveCursor(dx: Int, dy: Int) throws {
-        record(dx: dx, dy: dy, in: &mouse)
+        if rightButtonIsDown {
+            record(dx: dx, dy: dy, in: &drag)
+        } else {
+            record(dx: dx, dy: dy, in: &mouse)
+        }
     }
 
     public func scroll(dx: Int, dy: Int) throws {
         record(dx: dx, dy: dy, in: &wheel)
+    }
+
+    public func pressRightButton() throws {
+        rightButtonIsDown = true
+        report(PointerEmission.rightButtonDown.description)
+    }
+
+    public func releaseRightButton() throws {
+        rightButtonIsDown = false
+        report(PointerEmission.rightButtonUp.description)
+    }
+
+    /// Logs a discrete event immediately, after flushing any pending motion.
+    ///
+    /// Button transitions are rare and each one matters during a smoke test, so
+    /// they are never throttled. Flushing first keeps the log in true order:
+    /// without it a summary covering motion from before the click would print
+    /// after it.
+    private func report(_ line: String) {
+        flush()
+        log(line)
     }
 
     /// Reports whatever has not been summarized yet.
@@ -123,6 +174,7 @@ public final class LoggingPointerSink: PointerSink {
     public func flush() {
         let instant = now()
         drain(&mouse, at: instant)
+        drain(&drag, at: instant)
         drain(&wheel, at: instant)
     }
 

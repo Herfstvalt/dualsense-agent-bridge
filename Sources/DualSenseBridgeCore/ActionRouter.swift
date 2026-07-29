@@ -93,6 +93,12 @@ public struct ActionRouter: Sendable {
         let key = HoldKey(controller: event.controller.id, control: event.control)
 
         guard let binding = profile.binding(for: event.control) else {
+            // A control the pointer already speaks for is not unbound, so shrugging
+            // at it would tell the user R2 does nothing while it is in fact holding
+            // the right mouse button down. Note this suppresses only the shrug: an
+            // explicit binding below is still honored, because silently ignoring a
+            // mapping someone wrote on purpose would be the worse trap.
+            guard event.control != PointerButtonRouter.rightButtonControl else { return [] }
             // Only report on press so a shrug does not appear twice per button.
             return event.phase.isPressed ? [.unmapped(event.control)] : []
         }

@@ -35,12 +35,44 @@ public final class CoreGraphicsPointerSink: PointerSink {
     }
 
     private let tapLocation: CGEventTapLocation
+    /// Whether *this* sink has successfully posted a right-button-down that has
+    /// not yet been released.
+    ///
+    /// Tracked here, rather than trusted from above, because a `rightMouseDragged`
+    /// with no preceding `rightMouseDown` is a malformed gesture that applications
+    /// interpret unpredictably. Only a posted down may promote a move to a drag.
+    private var rightButtonIsDown = false
 
     public init(tapLocation: CGEventTapLocation = .cghidEventTap) {
         self.tapLocation = tapLocation
     }
 
     public func moveCursor(dx: Int, dy: Int) throws {
+        if rightButtonIsDown {
+            try move(dx: dx, dy: dy, as: .rightMouseDragged, button: .right)
+        } else {
+            try move(dx: dx, dy: dy, as: .mouseMoved, button: .left)
+        }
+    }
+
+    public func pressRightButton() throws {
+        // Set only after the event is actually posted: a failed down must not
+        // leave later movement pretending to drag.
+        try postAtCurrentPosition(.rightMouseDown)
+        rightButtonIsDown = true
+    }
+
+    public func releaseRightButton() throws {
+        // Cleared first, and whatever happens next: if posting the up fails there
+        // is nothing this sink can do about the physical button, and continuing to
+        // emit drag events would make it worse.
+        rightButtonIsDown = false
+        try postAtCurrentPosition(.rightMouseUp)
+    }
+
+    /// Applies a relative delta by reading the cursor, clamping, and posting an
+    /// absolute event of the given type.
+    private func move(dx: Int, dy: Int, as type: CGEventType, button: CGMouseButton) throws {
         guard let current = CGEvent(source: nil)?.location else {
             throw Failure.cursorPositionUnavailable
         }
@@ -48,12 +80,25 @@ public final class CoreGraphicsPointerSink: PointerSink {
         let target = clampToDisplays(
             CGPoint(x: current.x + CGFloat(dx), y: current.y + CGFloat(dy))
         )
+        try post(type, at: target, button: button)
+    }
+
+    /// Posts an event where the cursor already is, for transitions that must not
+    /// move it.
+    private func postAtCurrentPosition(_ type: CGEventType) throws {
+        guard let current = CGEvent(source: nil)?.location else {
+            throw Failure.cursorPositionUnavailable
+        }
+        try post(type, at: current, button: .right)
+    }
+
+    private func post(_ type: CGEventType, at position: CGPoint, button: CGMouseButton) throws {
         guard
             let event = CGEvent(
                 mouseEventSource: nil,
-                mouseType: .mouseMoved,
-                mouseCursorPosition: target,
-                mouseButton: .left
+                mouseType: type,
+                mouseCursorPosition: position,
+                mouseButton: button
             )
         else {
             throw Failure.eventCreationFailed

@@ -19,6 +19,16 @@ final class FailingPointerSink: PointerSink {
         attempts += 1
         throw Failure()
     }
+
+    func pressRightButton() throws {
+        attempts += 1
+        throw Failure()
+    }
+
+    func releaseRightButton() throws {
+        attempts += 1
+        throw Failure()
+    }
 }
 
 @Suite("the synthetic pointer quantizes motion and honors the permission boundary")

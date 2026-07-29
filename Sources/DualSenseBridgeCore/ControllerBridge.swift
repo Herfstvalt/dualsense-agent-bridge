@@ -11,6 +11,19 @@ public struct BridgeStep: Hashable, Sendable, CustomStringConvertible {
     public var description: String { "\(action) -> \(outcome)" }
 }
 
+/// One pointer-button action together with what the pointer boundary did.
+public struct PointerButtonStep: Hashable, Sendable, CustomStringConvertible {
+    public let action: PointerButtonAction
+    public let outcome: PointerButtonOutcome
+
+    public init(action: PointerButtonAction, outcome: PointerButtonOutcome) {
+        self.action = action
+        self.outcome = outcome
+    }
+
+    public var description: String { "\(action) -> \(outcome)" }
+}
+
 /// One navigation output together with what the pointer boundary did about it.
 public struct NavigationStep: Hashable, Sendable, CustomStringConvertible {
     public let output: NavigationOutput
@@ -98,6 +111,7 @@ public final class ControllerBridge {
 
     private var router: ActionRouter
     private var navigation: NavigationEngine
+    private var pointerButtons = PointerButtonRouter()
     private let keyboard: SyntheticKeyboard
     /// Absent when this bridge has no pointer boundary, in which case stick input
     /// is tracked but nothing is ever emitted.
@@ -122,8 +136,10 @@ public final class ControllerBridge {
     }
 
     deinit {
-        // Last-resort safety net if a caller forgets to shut down.
+        // Last-resort safety net if a caller forgets to shut down. A latched mouse
+        // button is at least as bad as a latched key.
         keyboard.releaseAllHeldKeys()
+        pointer?.releaseAllPointerButtons()
     }
 
     /// Controllers currently known to be connected, in connection order.
@@ -171,11 +187,12 @@ public final class ControllerBridge {
             return []
         }
 
+        let buttonSteps = performPointerButtons(for: input)
         let steps = router.handle(input).map { action in
             BridgeStep(action: action, outcome: keyboard.perform(action))
         }
 
-        logSteps(steps, for: input)
+        logSteps(steps, pointerButtonSteps: buttonSteps, for: input)
         return steps
     }
 
@@ -216,6 +233,7 @@ public final class ControllerBridge {
         }
         navigation.replaceSettings(with: profile.navigation)
         stopNavigating()
+        releaseAllPointerButtons()
         log?("profile \(profile.name)")
         return steps
     }
@@ -233,9 +251,11 @@ public final class ControllerBridge {
         controllers.removeAll()
         navigation.clearAll()
         stopNavigating()
+        releaseAllPointerButtons()
         log?("shutdown")
-        // Belt and braces: the router only knows about holds it started.
+        // Belt and braces: the routers only know about holds they started.
         keyboard.releaseAllHeldKeys()
+        pointer?.releaseAllPointerButtons()
         return steps
     }
 
@@ -263,6 +283,24 @@ public final class ControllerBridge {
     private func stopNavigating() {
         pointer?.reset()
         navigating = false
+    }
+
+    // MARK: - Pointer buttons
+
+    /// Forgets every pointer-button owner and releases anything still down.
+    private func releaseAllPointerButtons() {
+        _ = pointerButtons.releaseEverything()
+        pointer?.releaseAllPointerButtons()
+    }
+
+    /// Applies whatever the pointer-button router decided.
+    ///
+    /// Returns the steps so the caller can log them next to the control that
+    /// caused them; there is no separate stream to subscribe to.
+    private func performPointerButtons(for input: ControllerInput) -> [PointerButtonStep] {
+        let actions = pointerButtons.handle(input)
+        guard let pointer, !actions.isEmpty else { return [] }
+        return actions.map { PointerButtonStep(action: $0, outcome: pointer.perform($0)) }
     }
 
     /// Reports refusals and sink failures at most once per quiet period.
@@ -299,7 +337,11 @@ public final class ControllerBridge {
         }
     }
 
-    private func logSteps(_ steps: [BridgeStep], for input: ControllerInput) {
+    private func logSteps(
+        _ steps: [BridgeStep],
+        pointerButtonSteps: [PointerButtonStep],
+        for input: ControllerInput
+    ) {
         guard let log else { return }
 
         let prefix: String
@@ -318,11 +360,12 @@ public final class ControllerBridge {
             prefix = "shutdown"
         }
 
-        if steps.isEmpty {
+        let descriptions = pointerButtonSteps.map(\.description) + steps.map(\.description)
+        if descriptions.isEmpty {
             log(prefix)
         } else {
-            for step in steps {
-                log("\(prefix): \(step)")
+            for description in descriptions {
+                log("\(prefix): \(description)")
             }
         }
     }
