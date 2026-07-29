@@ -97,12 +97,16 @@ struct CommandRunner {
         }
         print("Keep this terminal in the background: keys go to the focused window,")
         print("so focus the agent session or text field you want to control.")
-        print("Waiting for a controller. Press Control-C to stop and release all keys.")
 
         let source = GameControllerEventSource()
         source.start { input in
             bridge.handle(input)
         }
+        print(
+            "Background controller events: "
+                + (source.monitorsBackgroundEvents ? "enabled" : "DISABLED - input would be dropped")
+        )
+        print("Waiting for a controller. Press Control-C to stop and release all keys.")
 
         installSignalHandlers(source: source, bridge: bridge)
         RunLoop.main.run()

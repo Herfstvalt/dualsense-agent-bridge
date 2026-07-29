@@ -51,6 +51,19 @@ focus. Start it in a separate terminal window, a background tmux window, or with
 If the bridge's own terminal is focused, Cross and R3 will act on that terminal
 instead.
 
+Because of that, the bridge is almost never the frontmost application, and since
+macOS 11.3 GameController drops controller input for processes that are not
+frontmost. `run` therefore enables background controller monitoring before it
+looks for a controller, and prints the result:
+
+```text
+Background controller events: enabled
+```
+
+If that line ever says `DISABLED`, the controller will connect and every button
+press will be silently dropped. The setting is process-global, so `run` puts the
+previous value back when it stops.
+
 ### Starter profile
 
 | Control | Action | Keys |

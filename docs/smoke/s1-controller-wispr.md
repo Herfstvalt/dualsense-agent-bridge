@@ -46,11 +46,17 @@ transcripts, credentials, or absolute home paths into the results.
 
 ## 2. Controller recognition
 
-- [ ] Start `dualsense-bridge run --dry-run` and connect the controller.
-      A `connected` line appears.
+- [ ] Start `dualsense-bridge run --dry-run` and confirm it prints
+      `Background controller events: enabled`. If it prints `DISABLED`, stop:
+      the controller will connect and every press will be dropped, because
+      macOS 11.3 and newer withhold controller input from processes that are
+      not frontmost. This is the failure mode found on the first hardware run
+      over SSH.
+- [ ] Connect the controller. A `connected` line appears.
 - [ ] Press each bound control once and confirm the printed control name
       matches the physical button: `cross`, `circle`, `r3`, and the hold
-      control (`l2` in the starter profile).
+      control (`l2` in the starter profile). Do this while the bridge's own
+      terminal is **not** frontmost, which is the way it will actually be used.
 - [ ] Confirm the DualSense mic button produces no binding output; it should
       keep its hardware mute behavior.
 
@@ -122,7 +128,7 @@ even if permission is revoked mid-hold.
 | --- | --- | --- |
 | 0. Baseline without hardware | pass | `swift test` (97 tests) and `swift build` pass; `doctor`, `profile`, `controls`, and `run --dry-run` verified, including clean shutdown on signal. |
 | 1. Permission boundary | pending | Needs a machine where Accessibility can be toggled for the host terminal. |
-| 2. Controller recognition | pending | No DualSense connected in the implementation environment. |
+| 2. Controller recognition | pending | First hardware run over SSH connected the controller but produced no button events; background controller monitoring is now enabled before discovery and `run` prints its state. Needs a repeat run on the controller machine. |
 | 3. Wispr Flow press-to-talk | pending | Wispr Flow not installed in the implementation environment. |
 | 4. Terminal actions | pending | Requires a connected controller. |
 | 5. Interruption and cleanup | pending | Requires a connected controller; automated coverage exists for disconnect and shutdown release. |

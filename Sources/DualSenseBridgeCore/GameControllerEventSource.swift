@@ -2,6 +2,29 @@
 import Foundation
 import GameController
 
+/// The real GameController global state.
+///
+/// `shouldMonitorBackgroundEvents` is a class property that defaults to false on
+/// macOS 11.3 and newer whenever the process is not frontmost, so a CLI bridge
+/// has to opt in explicitly.
+@MainActor
+public final class GameControllerDiscoveryHost: ControllerDiscoveryHost {
+    public init() {}
+
+    public var monitorsBackgroundEvents: Bool {
+        get { GCController.shouldMonitorBackgroundEvents }
+        set { GCController.shouldMonitorBackgroundEvents = newValue }
+    }
+
+    public func startDiscovery() {
+        GCController.startWirelessControllerDiscovery()
+    }
+
+    public func stopDiscovery() {
+        GCController.stopWirelessControllerDiscovery()
+    }
+}
+
 /// Normalizes GameController input into `ControllerInput`.
 ///
 /// This is the only file that knows GameController exists. Everything above it
@@ -14,17 +37,91 @@ import GameController
 public final class GameControllerEventSource {
     public typealias Handler = (ControllerInput) -> Void
 
+    private let host: any ControllerDiscoveryHost
     private var handler: Handler?
     private var observers: [any NSObjectProtocol] = []
     private var identities: [ObjectIdentifier: ControllerIdentity] = [:]
     private var nextIndex = 1
+    /// The background-monitoring value to put back on stop, when this source is
+    /// the one that changed it.
+    private var backgroundEventSettingToRestore: Bool?
+    /// The startup steps this source actually performed, in order.
+    public private(set) var startupSteps: [ControllerSourceStartupStep] = []
 
-    public init() {}
+    public init(host: any ControllerDiscoveryHost = GameControllerDiscoveryHost()) {
+        self.host = host
+    }
 
     /// Starts observing connections and button transitions.
+    ///
+    /// Steps run in `ControllerSourceStartupPlan` order so background monitoring
+    /// is enabled before any controller is observed, attached, or discovered.
     public func start(handler: @escaping Handler) {
         self.handler = handler
+        startupSteps.removeAll()
 
+        for step in ControllerSourceStartupPlan.steps {
+            perform(step)
+            startupSteps.append(step)
+        }
+    }
+
+    /// Stops observing and puts back any process-global state it changed.
+    ///
+    /// Callers are still responsible for shutting the bridge down so held keys
+    /// are released.
+    public func stop() {
+        host.stopDiscovery()
+        restoreBackgroundEvents()
+
+        for observer in observers {
+            NotificationCenter.default.removeObserver(observer)
+        }
+        observers.removeAll()
+
+        for controller in GCController.controllers() {
+            clearHandlers(controller)
+        }
+        identities.removeAll()
+        handler = nil
+        startupSteps.removeAll()
+    }
+
+    // MARK: - Startup steps
+
+    private func perform(_ step: ControllerSourceStartupStep) {
+        switch step {
+        case .enableBackgroundEvents:
+            enableBackgroundEvents()
+        case .observeConnections:
+            observeConnections()
+        case .attachExistingControllers:
+            synchronizeControllers()
+        case .startWirelessDiscovery:
+            host.startDiscovery()
+        }
+    }
+
+    /// Allows controller input while this process is in the background.
+    ///
+    /// A bridge started over SSH, from a background terminal, or from a tmux
+    /// window is never the frontmost application. Since macOS 11.3 that means
+    /// GameController drops every button event unless this is enabled, which
+    /// looks exactly like a controller that connects and then does nothing.
+    private func enableBackgroundEvents() {
+        guard !host.monitorsBackgroundEvents else { return }
+        // Only remember a value this source is responsible for putting back.
+        backgroundEventSettingToRestore = false
+        host.monitorsBackgroundEvents = true
+    }
+
+    private func restoreBackgroundEvents() {
+        guard let previous = backgroundEventSettingToRestore else { return }
+        host.monitorsBackgroundEvents = previous
+        backgroundEventSettingToRestore = nil
+    }
+
+    private func observeConnections() {
         let center = NotificationCenter.default
         for name in [Notification.Name.GCControllerDidConnect, .GCControllerDidDisconnect] {
             // The notification payload is intentionally ignored: re-reading
@@ -38,30 +135,18 @@ public final class GameControllerEventSource {
                 }
             )
         }
-
-        synchronizeControllers()
-        GCController.startWirelessControllerDiscovery()
-    }
-
-    /// Stops observing. Callers are still responsible for shutting the bridge
-    /// down so held keys are released.
-    public func stop() {
-        GCController.stopWirelessControllerDiscovery()
-        for observer in observers {
-            NotificationCenter.default.removeObserver(observer)
-        }
-        observers.removeAll()
-
-        for controller in GCController.controllers() {
-            clearHandlers(controller)
-        }
-        identities.removeAll()
-        handler = nil
     }
 
     /// Controllers currently attached to this running source.
     public var attachedControllers: [ControllerIdentity] {
         identities.values.sorted { $0.id < $1.id }
+    }
+
+    /// Whether controller input is currently delivered while this process is in
+    /// the background. Surfaced so `run` can state it plainly: when this is
+    /// false, a controller can connect and still produce no input.
+    public var monitorsBackgroundEvents: Bool {
+        host.monitorsBackgroundEvents
     }
 
     /// Reports the controllers GameController sees right now, without starting
