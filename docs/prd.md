@@ -122,7 +122,7 @@ then adds a documented live hardware smoke test on the user's Mac.
 
 - [x] Public repository, license, README, and contribution boundaries exist.
 - [x] Parent PRD is published and child slices are linked.
-- [ ] Issue labels and slice statuses are updated as work lands.
+- [x] Issue labels and slice statuses are initialized for the five child slices.
 
 ### Backend completion
 
@@ -169,7 +169,7 @@ Ctrl-C, configuration, fake-input tests, and a documented live smoke checklist.
 Suggested labels: `enhancement`, `needs-triage`, `backend-engineering`,
 `integration`, `human-in-the-loop`
 
-Status: child issue / PR / merge commit to be recorded.
+Status: Created in #2; PR / merge commit to be recorded.
 
 ### S2 — tmux teamwork session bridge
 
@@ -182,7 +182,7 @@ session-switch actions.
 Suggested labels: `enhancement`, `needs-triage`, `backend-engineering`,
 `integration`
 
-Status: child issue / PR / merge commit to be recorded.
+Status: Created in #3; PR / merge commit to be recorded.
 
 ### S3 — Latest-response capture and local speech
 
@@ -194,7 +194,7 @@ adapter. Add provider-reader seams without coupling the controller layer.
 
 Suggested labels: `enhancement`, `needs-triage`, `backend-engineering`
 
-Status: child issue / PR / merge commit to be recorded.
+Status: Created in #4; PR / merge commit to be recorded.
 
 ### S4 — Stick navigation and profile ergonomics
 
@@ -206,7 +206,7 @@ layers/profiles, feedback, and safe configuration diagnostics.
 Suggested labels: `enhancement`, `needs-triage`, `ui/ux`,
 `human-in-the-loop`
 
-Status: child issue / PR / merge commit to be recorded.
+Status: Created in #5; PR / merge commit to be recorded.
 
 ### S5 — Launch shell and end-to-end release smoke
 
@@ -219,7 +219,7 @@ run. Record any explicitly deferred hardware-audio work.
 Suggested labels: `enhancement`, `needs-triage`, `integration`, `ui/ux`,
 `human-in-the-loop`
 
-Status: child issue / PR / merge commit to be recorded.
+Status: Created in #6; PR / merge commit to be recorded.
 
 ## Testing Decisions
 
@@ -254,4 +254,3 @@ router and safety boundaries will already be exercised. A realistic estimate is
 one focused session for the S1 prototype, two to four days for a usable local
 MVP, and roughly one additional week for polish, remote targets, provider
 adapters, and repeatable hardware smoke coverage.
-
