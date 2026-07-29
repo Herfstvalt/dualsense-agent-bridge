@@ -26,7 +26,7 @@ validated on a real DualSense.
 
 ## Completion
 
-- PR:
+- PR: #8 (stacked on `agent/s1-controller-wispr`, PR #7)
 - Merge commit:
 - Tests: `swift test` — 209 tests in 17 suites, plus a clean release build with no
   warnings. New coverage: normalized stick axes, deadzone, clamp, response curve,
