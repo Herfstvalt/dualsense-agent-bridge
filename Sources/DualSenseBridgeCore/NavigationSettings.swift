@@ -126,8 +126,8 @@ public struct NavigationSettings: Hashable, Sendable {
     /// Responsive pointer defaults with a deliberately gentler scroll speed so
     /// a terminal buffer remains easy to control.
     public static let `default` = NavigationSettings(
-        pointer: NavigationAxisSettings(deadzone: 0.15, responseExponent: 2, speed: 1_560),
-        scroll: NavigationAxisSettings(deadzone: 0.2, responseExponent: 2, speed: 500),
+        pointer: NavigationAxisSettings(deadzone: 0.15, responseExponent: 2, speed: 2_340),
+        scroll: NavigationAxisSettings(deadzone: 0.2, responseExponent: 2, speed: 850),
         // 125 Hz, written as a round number because this file is hand-edited and
         // "0.008333333333333333" invites a typo.
         tickInterval: 0.008,

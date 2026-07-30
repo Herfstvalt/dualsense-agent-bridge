@@ -199,10 +199,10 @@ Fill this in during the hardware pass so the numbers survive the session.
 | --- | --- | --- | --- |
 | `pointer.deadzone` | 0.15 | | |
 | `pointer.responseExponent` | 2.0 | | |
-| `pointer.speed` | 1560 | | |
+| `pointer.speed` | 2340 | | |
 | `scroll.deadzone` | 0.2 | | |
 | `scroll.responseExponent` | 2.0 | | |
-| `scroll.speed` | 500 | | |
+| `scroll.speed` | 850 | | |
 | `tickInterval` | 0.008 | | |
 
 Sections 1 through 6 are the human-in-the-loop part of this slice and are

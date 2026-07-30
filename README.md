@@ -88,8 +88,8 @@ previous value back when it stops.
 
 | Control | Action |
 | --- | --- |
-| right stick | move the pointer — deadzone 0.15, curve 2.0, 1560 px/s |
-| left stick | scroll — deadzone 0.2, curve 2.0, 500 px/s |
+| right stick | move the pointer — deadzone 0.15, curve 2.0, 2340 px/s |
+| left stick | scroll — deadzone 0.2, curve 2.0, 850 px/s |
 | touchpad surface | disabled (unreliable on the target Mac) |
 | `r2` | hold the left mouse button |
 | `l2` | hold the right mouse button |
