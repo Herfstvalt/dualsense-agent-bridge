@@ -63,9 +63,9 @@ then adds a documented live hardware smoke test on the user's Mac.
     can listen while keeping my hands on the controller.
 17. As a privacy-conscious user, I want secrets and sensitive terminal noise
     redacted or bounded before speech, so that TTS does not expose credentials.
-18. As a controller user, I want the right stick or touchpad contacts to act as
-    a mouse while the left stick remains the scroll control, so that touchpad
-    swipes cannot unexpectedly switch screens or scroll a session.
+18. As a controller user, I want the right stick to act as a mouse while the
+    left stick remains the scroll control; the touchpad surface is currently
+    disabled after unstable hardware behavior, while its click stays available.
 19. As a controller user, I want deadzones, repeat rates, and mappings to be
     configurable, so that the controls feel natural on my hardware.
 20. As a user with multiple terminal applications, I want app-aware profiles,
@@ -93,8 +93,8 @@ then adds a documented live hardware smoke test on the user's Mac.
   identity, control, phase (pressed/released/repeated), timestamp, and source.
 - Keep mapping, layers, chords, hold behavior, and safety confirmation in a
   pure action router with no direct AppKit or tmux dependencies.
-- Use GameController for ordinary DualSense buttons, axes, and touchpad input
-  where available. Isolate raw HID parsing for the mic button and future
+- Use GameController for ordinary DualSense buttons, axes, and the touchpad
+  click where available. Isolate raw HID parsing for the mic button and future
   controller-audio support behind a platform adapter.
 - Emit Wispr Flow's user-configured keyboard shortcut as a key-down/key-up
   pair for press-to-talk. Do not depend on private Wispr APIs or UI automation.
@@ -110,9 +110,9 @@ then adds a documented live hardware smoke test on the user's Mac.
   D-pad Right→Command-C, and Options→Command-V for the user's confirmed
   app-specific resize/undo, copy-last, and paste actions.
 - Reserve R2 for left-button hold/drag and L2 for right-button hold/drag. Treat
-  every active touchpad contact as relative cursor motion using the contacts'
-  average travel; emit no touchpad scroll or system-swipe events. Keep the
-  physical touchpad click as its independent key binding.
+  touchpad surface motion disabled by default because it was unstable on the
+  target Mac; keep the physical touchpad click as its independent key binding.
+  The tested motion engine remains behind an explicit opt-in for a future fix.
 - Make tmux the canonical local control plane. The Session Bridge exposes
   list, select, focus/attach, send, interrupt, capture, and latest-response
   operations through typed interfaces.

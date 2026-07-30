@@ -6,7 +6,8 @@ import Testing
 struct TouchpadNavigationTests {
     private let settings = TouchpadNavigationSettings(
         pointerPixelsPerUnit: 100,
-        scrollPixelsPerUnit: 40
+        scrollPixelsPerUnit: 40,
+        surfaceMotionEnabled: true
     )
 
     @Test("one finger moves the cursor relative to its first contact point")
@@ -81,13 +82,24 @@ struct TouchpadNavigationTests {
                 == [.moveCursor(dx: 50, dy: 0)]
         )
     }
+
+    @Test("surface motion is disabled by default")
+    func surfaceMotionIsDisabledByDefault() {
+        var input = FakeControllerInput()
+        var engine = TouchpadNavigationEngine()
+
+        #expect(engine.handle(input.touchEvent(.primary, .began, x: -0.5, y: 0)).isEmpty)
+        #expect(engine.handle(input.touchEvent(.primary, .moved, x: 0.5, y: 0.5)).isEmpty)
+        #expect(engine.activeContactCount == 0)
+    }
 }
 
 @Suite("touchpad input reaches the pointer boundary end to end")
 struct TouchpadBridgeTests {
     private let settings = TouchpadNavigationSettings(
         pointerPixelsPerUnit: 100,
-        scrollPixelsPerUnit: 40
+        scrollPixelsPerUnit: 40,
+        surfaceMotionEnabled: true
     )
 
     private func makeBridge(
@@ -145,5 +157,28 @@ struct TouchpadBridgeTests {
         #expect(lines.lines.count == 2)
         #expect(lines.lines.first?.contains("touchpad primary began") == true)
         #expect(lines.lines.last?.contains("touchpad primary ended") == true)
+    }
+
+    @Test("disabling surface motion leaves the touchpad click binding active")
+    func disabledSurfaceKeepsTouchpadClick() {
+        var input = FakeControllerInput()
+        let pointer = RecordingPointerSink()
+        let keyboard = RecordingKeyboardSink()
+        let bridge = ControllerBridge(
+            profile: .starterTerminal,
+            keyboard: SyntheticKeyboard(sink: keyboard, accessibility: .fixed(.granted)),
+            pointer: SyntheticPointer(sink: pointer, accessibility: .fixed(.granted))
+        )
+
+        bridge.handle(input.touch(.primary, .began, x: -0.5, y: 0))
+        bridge.handle(input.touch(.primary, .moved, x: 0.5, y: 0.5))
+        bridge.handle(input.press(.touchpadButton))
+
+        #expect(pointer.emissions.isEmpty)
+        #expect(
+            keyboard.emissions == [
+                .down(.control), .down(.grave), .up(.grave), .up(.control),
+            ]
+        )
     }
 }

@@ -58,11 +58,9 @@ Start `dualsense-bridge run --dry-run` and keep its terminal **not** frontmost.
       should produce a small number of lines, not a hundred.
 - [ ] Press Cross and R3 while a stick is held. Button lines appear interleaved
       with motion summaries; neither starves the other.
-- [ ] Move one or more fingers across the touchpad. `touchpad primary began` is
-      followed by pointer movement, and `touchpad primary ended` appears on
-      lift. Landing a contact near an edge does not emit a large jump.
-- [ ] Move two fingers together. Output remains pointer movement only; no
-      `scroll` summary or system swipe is emitted.
+- [ ] Move one or more fingers across the touchpad. No cursor movement or
+      touchpad-surface action should occur; this surface is intentionally
+      disabled. A physical touchpad click remains testable below.
 
 ## 2. Pointer direction and feel
 
@@ -101,8 +99,9 @@ With focus in a long terminal buffer or a web page:
 
 ## 4. Coexistence with keyboard bindings
 
-- [ ] Click R3 to start Wispr Flow, move the right stick or touchpad contacts,
-      and click R3 again. Dictation stays active while the pointer moves.
+- [ ] Click R3 to start Wispr Flow, move the right stick, and click R3 again.
+      Dictation stays active while the pointer moves; touchpad surface motion is
+      intentionally disabled.
 - [ ] Press Cross while a stick is held. Return is delivered once and motion is
       unaffected.
 - [ ] Click the right stick (R3) while pushing it. Ctrl-S is delivered and the
@@ -184,11 +183,11 @@ With focus in a long terminal buffer or a web page:
 
 | Section | Status | Notes |
 | --- | --- | --- |
-| 0. Baseline without hardware | pass | `swift test` (279 tests, 23 suites) and `swift build -c release` pass; `controls` and `profile --starter` expose the repeat binding, confirmed Command-Z/C/V shortcuts, and schema version 3. |
-| 1. Stick/touchpad recognition | pending | Needs the paired DualSense in a GUI session. |
+| 0. Baseline without hardware | pass | `swift test` (282 tests, 23 suites) and `swift build -c release` pass; `controls` and `profile --starter` expose the repeat binding, confirmed Command-Z/C/V shortcuts, schema version 3, and the disabled touchpad surface. |
+| 1. Stick/touchpad recognition | pending | Needs the paired DualSense in a GUI session; surface motion is intentionally disabled while touchpad click remains mapped. |
 | 2. Pointer direction and feel | pending | Subjective; the shipped defaults are a starting point, not a verdict. |
 | 3. Scroll direction and feel | pending | Horizontal wheel polarity in particular needs a real check; `scroll.invertX` exists for exactly that. |
-| 4. Coexistence with keyboard bindings | pending | Automated coverage exists for stick/touchpad-and-button coexistence; the live Wispr path does not. |
+| 4. Coexistence with keyboard bindings | pending | Automated coverage exists for stick-and-button coexistence and the preserved touchpad click; the live Wispr path does not. |
 | 5. Interruption and cleanup | pending | Automated coverage exists for held-key and held-button release, disconnect, reconnect, profile replacement, shutdown, deinit, and permission-refusal paths. |
 | 6. Configuration | pending | Profile decoding and validation are covered by automated tests; the live feel of a changed value is not. |
 
@@ -200,7 +199,7 @@ Fill this in during the hardware pass so the numbers survive the session.
 | --- | --- | --- | --- |
 | `pointer.deadzone` | 0.15 | | |
 | `pointer.responseExponent` | 2.0 | | |
-| `pointer.speed` | 1200 | | |
+| `pointer.speed` | 1560 | | |
 | `scroll.deadzone` | 0.2 | | |
 | `scroll.responseExponent` | 2.0 | | |
 | `scroll.speed` | 500 | | |

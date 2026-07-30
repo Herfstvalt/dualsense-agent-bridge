@@ -21,21 +21,23 @@ validated on a real DualSense.
       diagnostics.
 - [ ] Stick release stops mouse/scroll output immediately.
 - [ ] Fake-axis tests cover deadzone, clamp, response curve, and disconnect.
-- [ ] Manual smoke checklist records a comfortable mapping on the user's Mac
-      without changing terminal text accidentally.
+- [ ] Manual smoke checklist records a comfortable right-stick mapping on the
+      user's Mac without changing terminal text accidentally; touchpad surface
+      motion remains disabled while click stays active.
 
 ## Completion
 
 - PR: #8 (stacked on `agent/s1-controller-wispr`, PR #7)
 - Merge commit:
-- Tests: `swift test` — 279 tests in 23 suites, plus a clean-scratch
+- Tests: `swift test` — 282 tests in 23 suites, plus a clean-scratch
   release build with no warnings. Coverage includes normalized stick axes,
   deadzone, clamp, response curve, continuous motion, release, disconnect,
   shutdown, sub-pixel quantization, the Accessibility refusal path, throttled
   dry-run logging, version 1 and version 2 profile decoding, ordered tmux key
   sequences, starter-profile round trips, R2-left/L2-right ownership, drag,
-  failure and cleanup behavior, plus one-finger touchpad pointer motion and
-  multi-contact pointer movement with no touchpad scrolling.
+  failure and cleanup behavior, plus the explicit touchpad-surface disablement
+  and preserved touchpad-click route. The motion engine remains covered by
+  opt-in unit tests for a future hardware fix.
 - Deferred: controller-driven profile/layer switching, D-pad repeat scrolling,
   stick role swapping, configurable middle/arbitrary mouse buttons, and
   system-level three-/four-finger gestures — each recorded with its reason under

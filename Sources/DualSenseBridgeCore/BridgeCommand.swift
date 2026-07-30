@@ -155,8 +155,8 @@ extension BridgeCommand {
         "navigation" section, so tuning them needs no rebuild. Use --dry-run to
         read the resulting motion as periodic summaries while tuning.
 
-        On a DualSense touch surface, every active contact moves the pointer by
-        the contacts' average travel; touchpad input never scrolls or swipes.
+        The DualSense touch surface is disabled for pointer motion in the starter
+        runtime; the physical touchpad click remains independently mapped.
         R2 holds the left mouse button; L2 holds the right.
         """
 

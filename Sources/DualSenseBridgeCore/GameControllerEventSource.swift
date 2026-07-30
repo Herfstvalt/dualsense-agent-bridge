@@ -58,6 +58,10 @@ public final class GameControllerEventSource {
     private var touchpadStates: [String: TouchpadState] = [:]
     private var nextIndex = 1
     private var isStarted = false
+    /// Surface motion is deliberately opt-in. The physical touchpad button is
+    /// still installed through `mappedButtons`; this flag only controls finger
+    /// position callbacks, which were noisy on the target Mac.
+    public let surfaceMotionEnabled: Bool
     /// The background-monitoring value to put back on stop, when this source is
     /// the one that changed it.
     private var backgroundEventSettingToRestore: Bool?
@@ -69,11 +73,12 @@ public final class GameControllerEventSource {
     }
 
     public convenience init() {
-        self.init(host: GameControllerDiscoveryHost())
+        self.init(host: GameControllerDiscoveryHost(), surfaceMotionEnabled: false)
     }
 
-    init(host: any ControllerDiscoveryHost) {
+    init(host: any ControllerDiscoveryHost, surfaceMotionEnabled: Bool = false) {
         self.host = host
+        self.surfaceMotionEnabled = surfaceMotionEnabled
     }
 
     /// Starts observing connections and button transitions.
@@ -237,7 +242,7 @@ public final class GameControllerEventSource {
             }
         }
 
-        if let dualSense = gamepad as? GCDualSenseGamepad {
+        if surfaceMotionEnabled, let dualSense = gamepad as? GCDualSenseGamepad {
             attachTouchpad(dualSense, from: identity)
         }
 

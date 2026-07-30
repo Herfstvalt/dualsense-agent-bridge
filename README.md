@@ -11,7 +11,7 @@ sessions usable from a controller plus Wispr Flow:
 - the shoulder buttons drive tmux windows and the session list;
 - the D-pad walks shell history;
 - the right stick moves the pointer and the left stick scrolls;
-- the touchpad moves the pointer only, including when more than one finger is down;
+- the touchpad surface is disabled for pointer motion; its physical click remains active;
 - R2 holds left click and L2 holds right click, including drag gestures;
 - the latest safe response can be spoken locally with macOS `say`.
 
@@ -88,9 +88,9 @@ previous value back when it stops.
 
 | Control | Action |
 | --- | --- |
-| right stick | move the pointer — deadzone 0.15, curve 2.0, 1200 px/s |
+| right stick | move the pointer — deadzone 0.15, curve 2.0, 1560 px/s |
 | left stick | scroll — deadzone 0.2, curve 2.0, 500 px/s |
-| touchpad | move the pointer relative to the contacts' average travel |
+| touchpad surface | disabled (unreliable on the target Mac) |
 | `r2` | hold the left mouse button |
 | `l2` | hold the right mouse button |
 
@@ -126,17 +126,16 @@ That makes R2 suitable for selection and ordinary dragging, and L2 suitable for
 context menus or app-specific right-drag gestures. If both are held, left drag
 has priority until R2 is released.
 
-The touch surface is event-driven rather than tick-driven. The first contact
-point becomes a baseline, so landing on an edge never jumps the cursor. Every
-active contact contributes to relative cursor motion through the contacts'
-average movement; adding a second finger never turns into scrolling or a system
-swipe. The physical touchpad *click* remains the separate Ctrl-backtick terminal
-shortcut.
+The touch surface is currently disabled for cursor motion because its input was
+unstable on the target Mac. The physical touchpad *click* remains independently
+active as the Ctrl-backtick terminal shortcut. The motion engine and tests remain
+in the codebase behind an explicit opt-in for a future hardware/OS fix.
 
-These are pointer events, not synthetic system-level multitouch. macOS does not
-expose a supported way for this bridge to inject three- or four-finger Mission
-Control/Spaces gestures, and the bridge deliberately emits no touchpad scroll
-events that could be mistaken for one.
+If surface motion is re-enabled for a future hardware fix, it will remain a
+relative pointer path rather than synthetic system-level multitouch. macOS does
+not expose a supported way for this bridge to inject three- or four-finger
+Mission Control/Spaces gestures, and the bridge deliberately emits no touchpad
+scroll events that could be mistaken for one.
 
 A held mouse button is worse to leave latched than a held key, so both are
 released on every exit: trigger release, controller disconnect/reconnect, a

@@ -310,8 +310,9 @@ public final class ControllerBridge {
         navigating = false
     }
 
-    /// Applies one touch delta immediately. A touch surface reports movement
-    /// continuously, so it does not need the timer thumbsticks use.
+    /// Applies one touch delta immediately when surface motion is enabled. A
+    /// touch surface reports movement continuously, so it does not need the
+    /// timer thumbsticks use.
     private func performTouchpadNavigation(_ event: ControllerTouchpadEvent) {
         let outputs = touchpadNavigation.handle(event)
 

@@ -115,6 +115,7 @@ struct CommandRunner {
         for line in profile.navigation.summaryLines {
             print("  \(line)")
         }
+        print("Touchpad surface: disabled (touchpad click remains active).")
         print("Keep this terminal in the background: keys go to the focused window,")
         print("so focus the agent session or text field you want to control.")
 

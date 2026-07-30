@@ -1,12 +1,22 @@
 /// Sensitivity for relative motion made from absolute DualSense touch samples.
 public struct TouchpadNavigationSettings: Hashable, Sendable {
+    /// Whether finger movement is allowed to move the cursor. The starter
+    /// runtime keeps this off because the DualSense surface was too noisy on
+    /// the target Mac; the physical touchpad button remains independently
+    /// routable through the keyboard profile.
+    public var surfaceMotionEnabled: Bool
     /// Cursor pixels produced by one normalized unit of finger travel.
     public var pointerPixelsPerUnit: Double
     /// Retained for source compatibility with the first touchpad profile.
     /// Touchpad input is pointer-only now, so this value is intentionally ignored.
     public var scrollPixelsPerUnit: Double
 
-    public init(pointerPixelsPerUnit: Double, scrollPixelsPerUnit: Double) {
+    public init(
+        pointerPixelsPerUnit: Double,
+        scrollPixelsPerUnit: Double,
+        surfaceMotionEnabled: Bool = false
+    ) {
+        self.surfaceMotionEnabled = surfaceMotionEnabled
         self.pointerPixelsPerUnit = pointerPixelsPerUnit
         self.scrollPixelsPerUnit = scrollPixelsPerUnit
     }
@@ -15,11 +25,15 @@ public struct TouchpadNavigationSettings: Hashable, Sendable {
     /// screen at the default sensitivity.
     public static let `default` = TouchpadNavigationSettings(
         pointerPixelsPerUnit: 700,
-        scrollPixelsPerUnit: 300
+        scrollPixelsPerUnit: 300,
+        surfaceMotionEnabled: false
     )
 }
 
-/// Converts touch contact deltas into relative cursor motion.
+/// Converts touch contact deltas into relative cursor motion when explicitly
+/// enabled. The starter runtime disables surface motion because the target Mac
+/// reported unstable finger coordinates; the click remains a normal button
+/// binding outside this engine.
 ///
 /// Every active contact contributes to the touchpad centroid. This keeps a
 /// second finger from turning into a scroll/swipe event while preserving a
@@ -47,6 +61,7 @@ public struct TouchpadNavigationEngine: Sendable {
     public var activeContactCount: Int { positions.count }
 
     public mutating func handle(_ event: ControllerTouchpadEvent) -> [NavigationOutput] {
+        guard settings.surfaceMotionEnabled else { return [] }
         let key = ContactKey(controller: event.controller.id, contact: event.contact)
 
         switch event.phase {
