@@ -74,6 +74,25 @@ struct ControllerBridgeTests {
         #expect(bridge.heldKeys.isEmpty)
     }
 
+    @Test("D-pad Left, D-pad Right, and Options send the confirmed control shortcuts")
+    func editingShortcutsEndToEnd() {
+        var input = FakeControllerInput()
+        let (bridge, sink) = makeBridge()
+
+        bridge.handle(input.press(.dpadLeft))
+        bridge.handle(input.press(.dpadRight))
+        bridge.handle(input.press(.options))
+
+        #expect(
+            sink.emissions == [
+                .down(.control), .down(.z), .up(.z), .up(.control),
+                .down(.control), .down(.c), .up(.c), .up(.control),
+                .down(.control), .down(.v), .up(.v), .up(.control),
+            ]
+        )
+        #expect(bridge.heldKeys.isEmpty)
+    }
+
     @Test("a disconnect during dictation releases the Wispr chord")
     func disconnectDuringDictation() {
         var input = FakeControllerInput()

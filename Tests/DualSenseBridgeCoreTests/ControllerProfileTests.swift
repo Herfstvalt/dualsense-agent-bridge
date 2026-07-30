@@ -80,13 +80,16 @@ struct ControllerProfileTests {
         #expect(profile.binding(for: .l3) == .tapSequence([prefix, KeyStroke(key: .s)]))
     }
 
-    @Test("the starter profile maps the touchpad click and the D-pad")
+    @Test("the starter profile maps the touchpad click and directional shortcuts")
     func starterProfileTouchpadAndDpad() {
         let profile = ControllerProfile.starterTerminal
 
         #expect(profile.binding(for: .touchpadButton) == .tap(KeyStroke(key: .grave, modifiers: .control)))
         #expect(profile.binding(for: .dpadUp) == .tap(KeyStroke(key: .arrowUp)))
         #expect(profile.binding(for: .dpadDown) == .tap(KeyStroke(key: .arrowDown)))
+        #expect(profile.binding(for: .dpadLeft) == .tap(KeyStroke(key: .z, modifiers: .control)))
+        #expect(profile.binding(for: .dpadRight) == .tap(KeyStroke(key: .c, modifiers: .control)))
+        #expect(profile.binding(for: .options) == .tap(KeyStroke(key: .v, modifiers: .control)))
     }
 
     @Test("the starter profile leaves the mic button and both pointer triggers out of keyboard routing")
@@ -107,7 +110,8 @@ struct ControllerProfileTests {
         #expect(
             bound == [
                 .cross, .circle, .square, .triangle, .r3, .r1, .l1, .l3,
-                .touchpadButton, .dpadUp, .dpadDown,
+                .touchpadButton, .dpadUp, .dpadDown, .dpadLeft, .dpadRight,
+                .options,
             ]
         )
     }
@@ -121,7 +125,7 @@ struct ControllerProfileTests {
         #expect(decoded == ControllerProfile.starterTerminal)
     }
 
-    @Test("the only editing and Command shortcuts are the requested Square and Triangle actions")
+    @Test("the only Command shortcut remains the requested Triangle action")
     func elevatedBindingsAreExplicit() {
         let profile = ControllerProfile.starterTerminal
 
