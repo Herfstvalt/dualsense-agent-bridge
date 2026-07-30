@@ -6,11 +6,13 @@ sessions on macOS.
 The project is intended to make Codex, Claude Code, and other tmux-backed
 sessions usable from a controller plus Wispr Flow:
 
-- a dedicated controller action starts/stops Wispr Flow press-to-talk;
+- R3 starts/stops Wispr Flow through a reliably held Ctrl-S toggle shortcut;
 - Cross sends Enter and Circle cancels;
-- R3 interrupts the focused session with Ctrl-C;
-- the D-pad changes the active tmux session;
-- the sticks can become mouse/scroll controls;
+- the shoulder buttons drive tmux windows and the session list;
+- the D-pad walks shell history;
+- the right stick moves the pointer and the left stick scrolls;
+- the touchpad surface is disabled for pointer motion; its physical click remains active;
+- R2 holds left click and L2 holds right click, including drag gestures;
 - the latest safe response can be spoken locally with macOS `say`.
 
 This is an early, macOS-first open-source project. The first milestone favors
@@ -69,18 +71,125 @@ previous value back when it stops.
 
 | Control | Action | Keys |
 | --- | --- | --- |
-| `l2` | hold | `control+option+space` (Wispr Flow press-to-talk) |
+| `r3` | hold for physical click | `control+s` (Wispr Flow toggle) |
 | `cross` | tap | `return` |
 | `circle` | tap | `escape` |
-| `r3` | tap | `control+c` |
+| `square` | repeat | `delete` (Backspace) |
+| `triangle` | tap | `option+command+f5` (Accessibility Shortcuts) |
+| `touchpadButton` | tap | `control+grave` |
+| `r1` | tapSequence | `control+b, n` (tmux next window) |
+| `l1` | tapSequence | `control+b, p` (tmux previous window) |
+| `l3` | tapSequence | `control+b, s` (tmux session list) |
+| `dpadUp` | tap | `arrowUp` |
+| `dpadDown` | tap | `arrowDown` |
+| `dpadLeft` | tapSequence | `control+b, z` (tmux pane zoom toggle) |
+| `dpadRight` | tap | `command+c` (copy-last action) |
+| `options` | tap | `command+v` (paste action) |
 
-The DualSense mic button is intentionally left unbound so it keeps its hardware
-mute behavior.
+| Control | Action |
+| --- | --- |
+| right stick | move the pointer — deadzone 0.15, curve 2.0, 2340 px/s |
+| left stick | scroll — deadzone 0.2, curve 2.0, 765 px/s |
+| touchpad surface | disabled (unreliable on the target Mac) |
+| `r2` | hold the left mouse button |
+| `l2` | hold the right mouse button |
 
-Set the Wispr Flow dictation shortcut to the same keys as the `hold` binding.
-Any unique chord built from `control`, `option`, `shift`, and `command` plus one
-key works; `fn` cannot be emitted synthetically and is rejected with an
-explanation.
+A `tapSequence` sends each shortcut as a complete press *and release*, in order.
+That is what the tmux bindings need: tmux reads `control+b` and then the command
+key as two separate keystrokes, so sending them as one chord would not work. It
+is only an ordered list — there are no delays, repeats, or nesting, because a
+binding that can express timing stops being a binding and becomes a macro
+language.
+
+A `repeat` binding sends one key-down immediately, waits 400 ms, then emits
+native repeat events every 50 ms until the controller button is released. This
+gives Square normal keyboard-style Backspace behavior: tap for one deletion or
+hold to keep deleting.
+
+The DualSense mic button keeps its hardware mute, while R2 and L2 belong to the
+pointer boundary rather than keyboard routing. Square is deliberately a
+repeating Backspace. Triangle opens macOS Accessibility Shortcuts, the supported
+route to enable the on-screen Accessibility Keyboard. Those face-button
+mappings remain ordinary profile data and can be replaced.
+
+### Stick and touchpad navigation
+
+The right stick moves the macOS pointer and the left stick scrolls the focused
+view, both continuously while the stick is held.
+
+Holding R2 presses the left mouse button; holding L2 presses the right mouse
+button. Pointer motion while either trigger is held emits the matching native
+left- or right-drag event rather than a plain move. Releasing the trigger lifts
+that button and motion returns to ordinary cursor movement.
+
+That makes R2 suitable for selection and ordinary dragging, and L2 suitable for
+context menus or app-specific right-drag gestures. If both are held, left drag
+has priority until R2 is released.
+
+The touch surface is currently disabled for cursor motion because its input was
+unstable on the target Mac. The physical touchpad *click* remains independently
+active as the Ctrl-backtick terminal shortcut. The motion engine and tests remain
+in the codebase behind an explicit opt-in for a future hardware/OS fix.
+
+If surface motion is re-enabled for a future hardware fix, it will remain a
+relative pointer path rather than synthetic system-level multitouch. macOS does
+not expose a supported way for this bridge to inject three- or four-finger
+Mission Control/Spaces gestures, and the bridge deliberately emits no touchpad
+scroll events that could be mistaken for one.
+
+A held mouse button is worse to leave latched than a held key, so both are
+released on every exit: trigger release, controller disconnect/reconnect, a
+profile change, shutdown, and process teardown. Cleanup deliberately ignores the
+Accessibility permission check, because revoking permission mid-drag must not be
+able to leave the button down. Pausing mid-drag is safe: the stick returning to
+centre drops the sub-pixel remainder but does not release the button.
+
+Four knobs shape the feel, per stick, and none of them needs a rebuild:
+
+| Setting | Meaning |
+| --- | --- |
+| `deadzone` | Deflection below this does nothing, so a worn stick cannot drift the cursor. |
+| `responseExponent` | 1 is linear; higher values make small pushes finer while full deflection still reaches full speed. |
+| `speed` | Pixels per second at full deflection. |
+| `invertX` / `invertY` | Flip an axis if it feels backwards on your setup. |
+
+Two more values apply to both sticks: `tickInterval`, how often motion is
+recomputed, and `maximumTickInterval`, the most travel a single tick may account
+for. That clamp is what stops a stalled or suspended process from flinging the
+cursor across the screen when it resumes.
+
+Motion is driven by a clock, not by stick callbacks. A gamepad reports a stick
+only when its value *changes*, so a stick held at full deflection goes quiet after
+one report; anything driven by callbacks alone would twitch once and stop.
+Releasing the stick stops output on the next tick, and a disconnect, a profile
+change, or shutdown stops it immediately.
+
+`run --dry-run` reports motion as periodic summaries rather than one line per
+tick, which is what makes it usable for tuning:
+
+```text
+  mouse dx=+318 dy=-96 over 0.50s (61 samples)
+  scroll dx=+0 dy=-140 over 0.50s (61 samples)
+  left button down
+  left drag dx=+84 dy=+12 over 0.50s (61 samples)
+  left button up
+```
+
+Drag motion is summarized separately from ordinary motion, and button
+transitions are never throttled, so a smoke test can see exactly where a drag
+started and ended.
+
+Both pointer and scroll output need the same Accessibility permission as the
+keyboard, and it is re-read per event: revoking it mid-motion stops the cursor
+rather than latching it.
+
+Set Wispr Flow's toggle shortcut to Ctrl-S for the starter R3 mapping. The
+bridge keeps Ctrl-S down for the duration of the physical click, avoiding the
+zero-duration tap that some global-shortcut listeners miss. If you prefer
+press-to-talk, add a `hold` binding to a non-trigger control and set Wispr Flow
+to the same chord. Any unique chord built from `control`, `option`, `shift`, and
+`command` plus one key works; `fn` cannot be emitted synthetically and is
+rejected with an explanation.
 
 ### Changing the mapping
 
@@ -97,9 +206,33 @@ mv /tmp/dualsense-profile.json ~/.config/dualsense-bridge/profile.json
 
 Edit that file, then run `dualsense-bridge doctor` to validate it. A profile is
 versioned (`schemaVersion`) and validated strictly: an unknown control name,
-unknown binding kind, or unparseable shortcut is refused with a message instead
-of being silently ignored, so a typo cannot quietly disable the interrupt
-binding. Use `--profile <path>` to load a profile from another location.
+unknown binding kind, unparseable shortcut, or out-of-range navigation value is
+refused with a message instead of being silently ignored, so a typo cannot
+quietly disable a binding or hand the cursor an absurd speed. Use
+`--profile <path>` to load a profile from another location.
+
+A binding's `kind` is `hold`, `repeat`, `tap`, or `tapSequence`. `repeat` is for
+one-key editing/navigation bindings that should fire once and then repeat while
+held. A `tapSequence` lists its shortcuts in order, separated by commas —
+`"keys": "control+b, n"` — and an empty list is refused rather than accepted as
+a binding that does nothing.
+
+Schema version 2 adds the `navigation` section, and version 3 adds `repeat`
+bindings. Version 1 and 2 profiles still load, so upgrading the bridge never
+invalidates a mapping you already tuned. Inside `navigation` every field is
+optional, so an experiment can be two lines:
+
+```json
+{
+  "schemaVersion": 3,
+  "name": "slower-pointer",
+  "bindings": { "cross": { "kind": "tap", "keys": "return" } },
+  "navigation": { "pointer": { "speed": 400 } }
+}
+```
+
+`doctor` and `run` both print the navigation values actually in effect, which is
+how you confirm the file you edited is the file being used.
 
 ## Development
 
@@ -108,13 +241,17 @@ swift test
 swift build
 ```
 
-Behavior is tested through a fake input source and a fake keyboard sink, so
-press/release ordering, duplicate and out-of-order events, held-key cleanup on
-disconnect and shutdown, and the Accessibility refusal path all run without a
-controller attached.
+Behavior is tested through a fake input source, a fake keyboard sink, and a fake
+pointer sink, so press/release ordering, duplicate and out-of-order events,
+held-key and held-button cleanup on disconnect and shutdown, per-controller hold
+ownership, drag-versus-move event selection, deadzone/clamp/curve arithmetic,
+continuous motion from a held stick, and the Accessibility refusal path all run
+without a controller attached. The navigation engine takes its clock as an
+argument, so a test advances time by hand and asserts exact pixel deltas.
 
 Hardware checks live in
-[docs/smoke/s1-controller-wispr.md](docs/smoke/s1-controller-wispr.md). Do not
+[docs/smoke/s1-controller-wispr.md](docs/smoke/s1-controller-wispr.md) and
+[docs/smoke/s4-stick-navigation.md](docs/smoke/s4-stick-navigation.md). Do not
 paste real session output or credentials into issues, fixtures, or logs.
 
 ## License

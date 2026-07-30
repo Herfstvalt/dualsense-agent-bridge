@@ -15,6 +15,10 @@ final class FlakyKeyboardSink: KeyboardSink {
         emissions.append(.down(key))
     }
 
+    func keyRepeat(_ key: KeyCode) throws {
+        emissions.append(.repeat(key))
+    }
+
     func keyUp(_ key: KeyCode) throws {
         if failAllUps { throw Failure() }
         emissions.append(.up(key))
@@ -335,7 +339,7 @@ struct AccessibilityDiagnosticsTests {
         let report = AccessibilityReport(status: .granted)
 
         #expect(report.isUsable)
-        #expect(report.headline == "Accessibility permission is granted; synthetic keyboard output is enabled.")
+        #expect(report.headline == "Accessibility permission is granted; synthetic keyboard and pointer output is enabled.")
         #expect(report.remediationSteps.isEmpty)
     }
 
@@ -344,7 +348,7 @@ struct AccessibilityDiagnosticsTests {
         let report = AccessibilityReport(status: .denied)
 
         #expect(!report.isUsable)
-        #expect(report.headline == "Accessibility permission is missing; synthetic keyboard output is disabled.")
+        #expect(report.headline == "Accessibility permission is missing; synthetic keyboard and pointer output is disabled.")
         #expect(
             report.remediationSteps == [
                 "Open System Settings > Privacy & Security > Accessibility.",

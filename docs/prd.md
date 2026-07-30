@@ -43,8 +43,8 @@ then adds a documented live hardware smoke test on the user's Mac.
    can be sent immediately.
 7. As a terminal user, I want Circle to emit Escape, so that I can cancel a
    dictation or close a transient prompt.
-8. As an agent operator, I want a dedicated interrupt action, so that R3 can
-   send Ctrl-C without confusing it with message submission.
+8. As a Wispr Flow user, I want R3 to send my Ctrl-S toggle shortcut, so that I
+   can start or stop hands-free dictation without holding a trigger.
 9. As an agent operator, I want to list active tmux sessions, so that I can
    understand the current teamwork workspace.
 10. As an agent operator, I want D-pad left/right to change the selected
@@ -63,8 +63,9 @@ then adds a documented live hardware smoke test on the user's Mac.
     can listen while keeping my hands on the controller.
 17. As a privacy-conscious user, I want secrets and sensitive terminal noise
     redacted or bounded before speech, so that TTS does not expose credentials.
-18. As a controller user, I want the right stick to act as a mouse and the
-    left stick/D-pad to scroll or navigate, so that I can roam through output.
+18. As a controller user, I want the right stick to act as a mouse while the
+    left stick remains the scroll control; the touchpad surface is currently
+    disabled after unstable hardware behavior, while its click stays available.
 19. As a controller user, I want deadzones, repeat rates, and mappings to be
     configurable, so that the controls feel natural on my hardware.
 20. As a user with multiple terminal applications, I want app-aware profiles,
@@ -92,16 +93,26 @@ then adds a documented live hardware smoke test on the user's Mac.
   identity, control, phase (pressed/released/repeated), timestamp, and source.
 - Keep mapping, layers, chords, hold behavior, and safety confirmation in a
   pure action router with no direct AppKit or tmux dependencies.
-- Use GameController for ordinary DualSense buttons, axes, and touchpad input
-  where available. Isolate raw HID parsing for the mic button and future
+- Use GameController for ordinary DualSense buttons, axes, and the touchpad
+  click where available. Isolate raw HID parsing for the mic button and future
   controller-audio support behind a platform adapter.
 - Emit Wispr Flow's user-configured keyboard shortcut as a key-down/key-up
   pair for press-to-talk. Do not depend on private Wispr APIs or UI automation.
 - Treat the physical DualSense mic button as independently configurable; the
   default profile may reserve it for hardware mute while a separate button
   controls Wispr.
-- Use Cross→Enter, Circle→Escape, and R3→Ctrl-C in the starter terminal
-  profile. A literal session kill is never bound to a normal Enter action.
+- Use Cross→Enter, Circle→Escape, Square→Backspace, R3→Ctrl-S, and touchpad
+  click→Ctrl-backtick in the starter terminal profile. Triangle opens macOS
+  Accessibility Shortcuts (`Option-Command-F5`) as the supported route to the
+  on-screen keyboard. Use R1/L1/L3 for fully released tmux prefix sequences
+  (`Ctrl-B`, then `n`/`p`/`s`) and D-pad Up/Down for shell history. A literal
+  session kill is never bound to a normal button. Use D-pad Left→Ctrl-B then Z
+  to toggle tmux pane zoom, D-pad Right→Command-C for copy-last, and
+  Options→Command-V for paste.
+- Reserve R2 for left-button hold/drag and L2 for right-button hold/drag. Treat
+  touchpad surface motion disabled by default because it was unstable on the
+  target Mac; keep the physical touchpad click as its independent key binding.
+  The tested motion engine remains behind an explicit opt-in for a future fix.
 - Make tmux the canonical local control plane. The Session Bridge exposes
   list, select, focus/attach, send, interrupt, capture, and latest-response
   operations through typed interfaces.
@@ -163,8 +174,8 @@ then adds a documented live hardware smoke test on the user's Mac.
 Owner lane: `backend-engineering`, `integration`
 
 Deliver a complete path from normalized controller events to Wispr PTT and
-terminal actions: dedicated hold-to-talk, Cross→Enter, Circle→Escape, R3→
-Ctrl-C, configuration, fake-input tests, and a documented live smoke checklist.
+terminal actions: dedicated hold-to-talk, Cross→Enter, Circle→Escape, an R3
+toggle, configuration, fake-input tests, and a documented live smoke checklist.
 
 Suggested labels: `enhancement`, `needs-triage`, `backend-engineering`,
 `integration`, `human-in-the-loop`
@@ -207,6 +218,29 @@ Suggested labels: `enhancement`, `needs-triage`, `ui/ux`,
 `human-in-the-loop`
 
 Status: Created in #5; PR / merge commit to be recorded.
+
+Deferred out of the first S4 implementation, deliberately rather than by
+omission:
+
+- **Profile and layer switching from the controller.** Navigation settings are
+  persisted and validated in the profile, and a profile swap already stops all
+  motion safely, but there is no controller-driven layer stack and no binding
+  that changes profiles at runtime. Choosing how layers compose is a design
+  question that physical tuning should answer first.
+- **D-pad scrolling.** The D-pad is reported as four buttons and can be bound to
+  any shortcut today. Repeat-rate scrolling from the D-pad would need its own
+  repeat engine and would duplicate what the left stick already does better.
+- **Stick role swapping.** The right stick is the pointer and the left stick
+  scrolls; every other knob is configurable. Swapping roles is a one-line change
+  to `NavigationSettings.role(of:)` when someone actually wants it.
+- **Configurable mouse-button remapping.** R2 and L2 now have fixed pointer
+  actions: left and right button hold/drag. Middle click and arbitrary
+  mouse-button profile bindings remain deferred until the hardware pass proves
+  a need for them.
+- **System-level multitouch gestures.** One contact moves and two contacts
+  scroll through supported CoreGraphics events. Synthetic three-/four-finger
+  Mission Control or Spaces gestures are not exposed by a supported macOS API;
+  future gestures should map to explicit keyboard shortcuts instead.
 
 ### S5 — Launch shell and end-to-end release smoke
 

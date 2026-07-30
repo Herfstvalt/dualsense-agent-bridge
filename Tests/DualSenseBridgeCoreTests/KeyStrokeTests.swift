@@ -34,6 +34,25 @@ struct KeyStrokeTests {
         #expect(try KeyStroke(parsing: stroke.description) == stroke)
     }
 
+    @Test("every key name this build writes can be read back")
+    func everyKeyNameRoundTrips() throws {
+        // Parsing lowercases its tokens, so a camelCase name such as `arrowUp`
+        // silently failed to parse even though that is exactly what the encoder
+        // writes, which made an arrow-key binding unloadable.
+        for key in KeyCode.allCases where key.modifier == nil {
+            let stroke = KeyStroke(key: key)
+            #expect(try KeyStroke(parsing: stroke.description) == stroke)
+        }
+    }
+
+    @Test("key names are accepted whatever case they are written in")
+    func keyNamesAreCaseInsensitive() throws {
+        #expect(try KeyStroke(parsing: "ARROWUP") == KeyStroke(key: .arrowUp))
+        #expect(try KeyStroke(parsing: "arrowup") == KeyStroke(key: .arrowUp))
+        #expect(try KeyStroke(parsing: "arrowUp") == KeyStroke(key: .arrowUp))
+        #expect(try KeyStroke(parsing: "control+PageDown") == KeyStroke(key: .pageDown, modifiers: .control))
+    }
+
     @Test("interrupt is expressed as control and the letter c")
     func interruptStroke() throws {
         let stroke = try KeyStroke(parsing: "ctrl+c")

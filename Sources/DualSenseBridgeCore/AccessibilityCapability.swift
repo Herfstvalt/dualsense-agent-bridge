@@ -36,9 +36,9 @@ public struct AccessibilityReport: Hashable, Sendable {
     public var headline: String {
         switch status {
         case .granted:
-            "Accessibility permission is granted; synthetic keyboard output is enabled."
+            "Accessibility permission is granted; synthetic keyboard and pointer output is enabled."
         case .denied:
-            "Accessibility permission is missing; synthetic keyboard output is disabled."
+            "Accessibility permission is missing; synthetic keyboard and pointer output is disabled."
         }
     }
 

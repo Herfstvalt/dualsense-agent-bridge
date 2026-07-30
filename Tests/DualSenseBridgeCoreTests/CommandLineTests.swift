@@ -143,6 +143,28 @@ struct CommandLineTests {
         #expect(listing.contains("micButton"))
         #expect(listing.split(separator: "\n").count >= ControllerControl.allCases.count)
     }
+
+    @Test("the controls listing says which controls are already spoken for")
+    func controlsListingExplainsReservedControls() {
+        let listing = BridgeCommand.controlsText
+
+        // A user who binds a trigger and sees a mouse button move anyway needs
+        // to be told why; this is where they will look for control names.
+        #expect(listing.contains("r2"))
+        #expect(listing.contains("l2"))
+        #expect(listing.lowercased().contains("left mouse button"))
+        #expect(listing.lowercased().contains("right mouse button"))
+        #expect(listing.lowercased().contains("mic"))
+    }
+
+    @Test("the controls listing documents the binding kinds a profile accepts")
+    func controlsListingNamesBindingKinds() {
+        let listing = BridgeCommand.controlsText
+
+        #expect(listing.contains("repeat"))
+        #expect(listing.contains("tapSequence"))
+        #expect(listing.contains("control+b, n"))
+    }
 }
 
 @Suite("profiles load from disk with actionable errors")

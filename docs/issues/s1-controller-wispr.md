@@ -13,6 +13,11 @@ This is a HITL slice because the implementation can be automated, but final
 acceptance requires a paired DualSense, Accessibility permission, and a real
 terminal/Wispr Flow smoke test.
 
+> Mapping history: this issue records the original S1 tracer, where R3 sent
+> Ctrl-C. The active starter profile was deliberately superseded during S4:
+> R3 now sends the user's Ctrl-S Wispr Flow toggle. The current hardware checks
+> are in `docs/smoke/s4-stick-navigation.md`.
+
 ## Acceptance criteria
 
 - [ ] A controller event model represents control, press/release phase, and
@@ -41,4 +46,3 @@ terminal/Wispr Flow smoke test.
 ## Blocked by
 
 None - can start immediately.
-

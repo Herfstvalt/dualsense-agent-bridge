@@ -45,6 +45,28 @@ final class MutableAccessibility: @unchecked Sendable {
     }
 }
 
+/// Compares two computed distances without asserting bit-exact arithmetic.
+///
+/// Navigation deltas go through a square root and a power, so the expectations in
+/// these tests are exact to well within a pixel but not to the last bit.
+func isClose(_ first: Double, _ second: Double, tolerance: Double = 1e-9) -> Bool {
+    abs(first - second) <= tolerance
+}
+
+extension NavigationOutput {
+    /// The cursor delta, or nil if this output is a scroll.
+    var cursorDelta: (dx: Double, dy: Double)? {
+        guard case .moveCursor(let dx, let dy) = self else { return nil }
+        return (dx, dy)
+    }
+
+    /// The scroll delta, or nil if this output moves the cursor.
+    var scrollDelta: (dx: Double, dy: Double)? {
+        guard case .scroll(let dx, let dy) = self else { return nil }
+        return (dx, dy)
+    }
+}
+
 /// A thread-safe collector for log lines produced by a bridge under test.
 final class LineCollector: @unchecked Sendable {
     private let lock = NSLock()

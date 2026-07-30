@@ -149,11 +149,39 @@ extension BridgeCommand {
         Run the bridge in a separate terminal or in the background. Cross,
         Circle, and R3 go to whatever window has focus, so the target agent
         session or text field must be focused, not the bridge's own terminal.
+
+        The right stick moves the pointer and the left stick scrolls. Deadzone,
+        response curve, speed, and axis inversion live in the profile's
+        "navigation" section, so tuning them needs no rebuild. Use --dry-run to
+        read the resulting motion as periodic summaries while tuning.
+
+        The DualSense touch surface is disabled for pointer motion in the starter
+        runtime; the physical touchpad click remains independently mapped.
+        R2 holds the left mouse button; L2 holds the right.
         """
 
     public static var controlsText: String {
-        (["Controller control names accepted in a profile:"]
-            + ControllerControl.allCases.map { "  \($0.rawValue)" })
+        let controls = ControllerControl.allCases.map { control in
+            switch control {
+            case .r2:
+                "  \(control.rawValue) (reserved: holds the left mouse button)"
+            case .l2:
+                "  \(control.rawValue) (reserved: holds the right mouse button)"
+            case .micButton:
+                "  \(control.rawValue) (starter profile leaves this unbound for hardware mute)"
+            default:
+                "  \(control.rawValue)"
+            }
+        }
+
+        return (["Controller control names accepted in a profile:"]
+            + controls
+            + [
+                "",
+                "Binding kinds: hold, repeat, tap, tapSequence",
+                "repeat example: delete (press once, then hold to repeat)",
+                "tapSequence example: control+b, n",
+            ])
             .joined(separator: "\n")
     }
 }

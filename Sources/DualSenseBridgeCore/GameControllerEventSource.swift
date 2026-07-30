@@ -53,18 +53,32 @@ public final class GameControllerEventSource {
     private var handler: Handler?
     private var observers: [any NSObjectProtocol] = []
     private var identities: [ObjectIdentifier: ControllerIdentity] = [:]
+    /// Per-controller contact state used to turn GameController's absolute
+    /// DualSense pads into began/moved/ended samples.
+    private var touchpadStates: [String: TouchpadState] = [:]
     private var nextIndex = 1
     private var isStarted = false
+    /// Surface motion is deliberately opt-in. The physical touchpad button is
+    /// still installed through `mappedButtons`; this flag only controls finger
+    /// position callbacks, which were noisy on the target Mac.
+    public let surfaceMotionEnabled: Bool
     /// The background-monitoring value to put back on stop, when this source is
     /// the one that changed it.
     private var backgroundEventSettingToRestore: Bool?
 
-    public convenience init() {
-        self.init(host: GameControllerDiscoveryHost())
+    private struct TouchpadState {
+        var surfaceIsTouched = false
+        var active: Set<TouchpadContact> = []
+        var positions: [TouchpadContact: TouchpadPosition] = [:]
     }
 
-    init(host: any ControllerDiscoveryHost) {
+    public convenience init() {
+        self.init(host: GameControllerDiscoveryHost(), surfaceMotionEnabled: false)
+    }
+
+    init(host: any ControllerDiscoveryHost, surfaceMotionEnabled: Bool = false) {
         self.host = host
+        self.surfaceMotionEnabled = surfaceMotionEnabled
     }
 
     /// Starts observing connections and button transitions.
@@ -106,6 +120,7 @@ public final class GameControllerEventSource {
             clearHandlers(controller)
         }
         identities.removeAll()
+        touchpadStates.removeAll()
         handler = nil
     }
 
@@ -185,6 +200,7 @@ public final class GameControllerEventSource {
 
         for key in identities.keys where !currentKeys.contains(key) {
             if let identity = identities.removeValue(forKey: key) {
+                touchpadStates[identity.id] = nil
                 handler?(.disconnected(identity))
             }
         }
@@ -215,6 +231,21 @@ public final class GameControllerEventSource {
             }
         }
 
+        // Thumbsticks report only when their value *changes*, so a stick held at
+        // full deflection goes quiet after one callback. These handlers therefore
+        // report position, and the navigation tick supplies the motion.
+        for (stick, pad) in Self.mappedSticks(of: gamepad) {
+            pad.valueChangedHandler = { [weak self] _, x, y in
+                MainActor.assumeIsolated {
+                    self?.emit(stick, x: Double(x), y: Double(y), from: identity)
+                }
+            }
+        }
+
+        if surfaceMotionEnabled, let dualSense = gamepad as? GCDualSenseGamepad {
+            attachTouchpad(dualSense, from: identity)
+        }
+
         handler?(.connected(identity))
     }
 
@@ -223,6 +254,168 @@ public final class GameControllerEventSource {
         for (_, button) in Self.mappedButtons(of: gamepad) {
             button.pressedChangedHandler = nil
         }
+        for (_, pad) in Self.mappedSticks(of: gamepad) {
+            pad.valueChangedHandler = nil
+        }
+        if let dualSense = gamepad as? GCDualSenseGamepad {
+            dualSense.touchpadButton.touchedChangedHandler = nil
+            dualSense.touchpadPrimary.valueChangedHandler = nil
+            dualSense.touchpadSecondary.valueChangedHandler = nil
+        }
+    }
+
+    // MARK: - Touchpad
+
+    private func attachTouchpad(_ dualSense: GCDualSenseGamepad, from identity: ControllerIdentity) {
+        touchpadStates[identity.id] = TouchpadState()
+
+        dualSense.touchpadButton.touchedChangedHandler = { [weak self, weak dualSense] _, _, _, touched in
+            MainActor.assumeIsolated {
+                guard let self, let dualSense else { return }
+                self.touchSurfaceChanged(touched, gamepad: dualSense, from: identity)
+            }
+        }
+
+        dualSense.touchpadPrimary.valueChangedHandler = { [weak self] _, x, y in
+            MainActor.assumeIsolated {
+                self?.touchPositionChanged(
+                    .primary,
+                    position: TouchpadPosition(x: Double(x), y: Double(y)),
+                    from: identity
+                )
+            }
+        }
+        dualSense.touchpadSecondary.valueChangedHandler = { [weak self] _, x, y in
+            MainActor.assumeIsolated {
+                self?.touchPositionChanged(
+                    .secondary,
+                    position: TouchpadPosition(x: Double(x), y: Double(y)),
+                    from: identity
+                )
+            }
+        }
+    }
+
+    private func touchSurfaceChanged(
+        _ touched: Bool,
+        gamepad: GCDualSenseGamepad,
+        from identity: ControllerIdentity
+    ) {
+        var state = touchpadStates[identity.id] ?? TouchpadState()
+        state.surfaceIsTouched = touched
+        touchpadStates[identity.id] = state
+
+        if touched {
+            // Reading both pads here establishes a baseline even when the
+            // touched edge arrives before their first value callback.
+            touchPositionChanged(
+                .primary,
+                position: TouchpadPosition(
+                    x: Double(gamepad.touchpadPrimary.xAxis.value),
+                    y: Double(gamepad.touchpadPrimary.yAxis.value)
+                ),
+                from: identity
+            )
+            touchPositionChanged(
+                .secondary,
+                position: TouchpadPosition(
+                    x: Double(gamepad.touchpadSecondary.xAxis.value),
+                    y: Double(gamepad.touchpadSecondary.yAxis.value)
+                ),
+                from: identity
+            )
+            return
+        }
+
+        // One touched edge covers the whole physical surface. End both known
+        // contacts immediately rather than waiting for another position sample.
+        state = touchpadStates[identity.id] ?? state
+        for contact in TouchpadContact.allCases where state.active.contains(contact) {
+            emit(
+                contact,
+                phase: .ended,
+                position: state.positions[contact] ?? TouchpadPosition(x: 0, y: 0),
+                from: identity
+            )
+        }
+        state.active.removeAll()
+        touchpadStates[identity.id] = state
+    }
+
+    private func touchPositionChanged(
+        _ contact: TouchpadContact,
+        position: TouchpadPosition,
+        from identity: ControllerIdentity
+    ) {
+        var state = touchpadStates[identity.id] ?? TouchpadState()
+        let previous = state.positions[contact] ?? position
+        state.positions[contact] = position
+
+        // `isTouched` is the reliable primary-contact signal. Older macOS
+        // releases occasionally omit it, so non-resting motion is also accepted
+        // as evidence. Different releases have used both (0, 0) and (-1, 1) as
+        // the direction-pad resting sentinel.
+        let shouldBeActive: Bool
+        switch contact {
+        case .primary:
+            shouldBeActive = state.surfaceIsTouched || !Self.isRestingTouchpadPosition(position)
+        case .secondary:
+            shouldBeActive = !Self.isRestingTouchpadPosition(position)
+        }
+
+        let phase: TouchpadPhase?
+        if shouldBeActive {
+            phase = state.active.insert(contact).inserted ? .began : .moved
+        } else if state.active.remove(contact) != nil {
+            phase = .ended
+        } else {
+            phase = nil
+        }
+        touchpadStates[identity.id] = state
+
+        guard let phase else { return }
+        emit(contact, phase: phase, position: phase == .ended ? previous : position, from: identity)
+    }
+
+    private static func isRestingTouchpadPosition(_ position: TouchpadPosition) -> Bool {
+        let epsilon = 0.001
+        let isZero = abs(position.x) < epsilon && abs(position.y) < epsilon
+        let isLegacyCorner = abs(position.x + 1) < epsilon && abs(position.y - 1) < epsilon
+        return isZero || isLegacyCorner
+    }
+
+    private func emit(
+        _ contact: TouchpadContact,
+        phase: TouchpadPhase,
+        position: TouchpadPosition,
+        from identity: ControllerIdentity
+    ) {
+        handler?(
+            .touchpad(
+                ControllerTouchpadEvent(
+                    controller: identity,
+                    contact: contact,
+                    phase: phase,
+                    position: position,
+                    timestamp: ProcessInfo.processInfo.systemUptime,
+                    source: .gameController
+                )
+            )
+        )
+    }
+
+    private func emit(_ stick: ControllerStick, x: Double, y: Double, from identity: ControllerIdentity) {
+        handler?(
+            .axis(
+                ControllerAxisEvent(
+                    controller: identity,
+                    stick: stick,
+                    position: StickVector(x: x, y: y),
+                    timestamp: ProcessInfo.processInfo.systemUptime,
+                    source: .gameController
+                )
+            )
+        )
     }
 
     private func emit(_ control: ControllerControl, pressed: Bool, from identity: ControllerIdentity) {
@@ -277,6 +470,15 @@ public final class GameControllerEventSource {
         }
 
         return buttons
+    }
+
+    private static func mappedSticks(
+        of gamepad: GCExtendedGamepad
+    ) -> [(ControllerStick, GCControllerDirectionPad)] {
+        [
+            (.left, gamepad.leftThumbstick),
+            (.right, gamepad.rightThumbstick),
+        ]
     }
 }
 #endif

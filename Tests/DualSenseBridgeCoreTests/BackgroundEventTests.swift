@@ -46,6 +46,14 @@ final class FakeDiscoveryHost: ControllerDiscoveryHost {
 @Suite("the controller source works while the process is in the background")
 @MainActor
 struct GameControllerEventSourceTests {
+    @Test("surface motion is opt-in while button routing remains available")
+    func surfaceMotionIsOptIn() {
+        let host = FakeDiscoveryHost()
+        let source = GameControllerEventSource(host: host)
+
+        #expect(!source.surfaceMotionEnabled)
+    }
+
     @Test("background monitoring is enabled before discovery starts")
     func backgroundEventsAreEnabledFirst() {
         let host = FakeDiscoveryHost(monitorsBackgroundEvents: false)

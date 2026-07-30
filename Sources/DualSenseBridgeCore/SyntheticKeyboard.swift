@@ -94,6 +94,9 @@ public final class SyntheticKeyboard {
         case .endHold(let stroke):
             // Never refused: a chord that is already down must come back up.
             return endHold(stroke)
+        case .repeatHeld(let stroke):
+            if let refusal = pressRefusal() { return refusal }
+            return repeatHeld(stroke)
         case .releaseAllHeldKeys:
             guard !pressOrder.isEmpty || !holdContributions.isEmpty else { return .noOutput }
             return sweep()
@@ -167,6 +170,25 @@ public final class SyntheticKeyboard {
         let result = unwind(pressed)
         guard result.succeeded else { return .failed(reason: Self.sinkFailureReason) }
         return result.released ? .emitted : .noOutput
+    }
+
+    private func repeatHeld(_ stroke: KeyStroke) -> KeyboardOutcome {
+        guard
+            holdContributions[stroke]?.isEmpty == false,
+            (pressCounts[stroke.key] ?? 0) > 0
+        else {
+            return .noOutput
+        }
+
+        do {
+            try sink.keyRepeat(stroke.key)
+            return .emitted
+        } catch {
+            // A failed repeat leaves the original chord down. Sweep it now so a
+            // broken sink can never turn Backspace into a latched key.
+            _ = sweep()
+            return .failed(reason: Self.sinkFailureReason)
+        }
     }
 
     /// Releases every held key in reverse press order and forgets all owners.
