@@ -12,7 +12,7 @@ struct NavigationSettingsTests {
         try settings.validate()
         #expect(settings.pointer.deadzone > 0)
         #expect(settings.scroll.deadzone > 0)
-        #expect(settings.pointer.speed <= 1_200)
+        #expect(settings.pointer.speed == 1_200)
         #expect(settings.scroll.speed <= 1_200)
         #expect(settings.tickInterval <= 0.02)
         #expect(settings.maximumTickInterval >= settings.tickInterval)

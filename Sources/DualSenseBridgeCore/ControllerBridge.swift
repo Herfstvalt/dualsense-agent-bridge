@@ -323,7 +323,7 @@ public final class ControllerBridge {
         let steps = outputs.map { NavigationStep(output: $0, outcome: pointer.perform($0)) }
         logNavigationProblems(in: steps, at: event.timestamp)
 
-        // Do not carry a fraction of the previous swipe into a new gesture.
+        // Do not carry a fraction of the previous touch gesture into a new one.
         if event.phase == .ended, touchpadNavigation.isIdle {
             pointer.reset()
         }

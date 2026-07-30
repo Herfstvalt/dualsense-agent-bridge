@@ -146,7 +146,7 @@ public struct ControllerProfile: Hashable, Sendable {
     /// and right mouse buttons rather than keyboard routing.
     ///
     /// The right stick moves the pointer and the left stick scrolls, using the
-    /// conservative default navigation settings.
+    /// responsive pointer and gentler scroll defaults.
     public static let starterTerminal = ControllerProfile(
         name: "starter-terminal",
         bindings: [

@@ -2,7 +2,8 @@
 public struct TouchpadNavigationSettings: Hashable, Sendable {
     /// Cursor pixels produced by one normalized unit of finger travel.
     public var pointerPixelsPerUnit: Double
-    /// Scroll pixels produced by one normalized unit of two-finger travel.
+    /// Retained for source compatibility with the first touchpad profile.
+    /// Touchpad input is pointer-only now, so this value is intentionally ignored.
     public var scrollPixelsPerUnit: Double
 
     public init(pointerPixelsPerUnit: Double, scrollPixelsPerUnit: Double) {
@@ -10,15 +11,20 @@ public struct TouchpadNavigationSettings: Hashable, Sendable {
         self.scrollPixelsPerUnit = scrollPixelsPerUnit
     }
 
-    /// A full-width swipe is two normalized units, or roughly one laptop screen.
+    /// A full-width finger travel is two normalized units, or roughly one laptop
+    /// screen at the default sensitivity.
     public static let `default` = TouchpadNavigationSettings(
         pointerPixelsPerUnit: 700,
         scrollPixelsPerUnit: 300
     )
 }
 
-/// Converts touch contact deltas into Mac-like one-finger motion and two-finger
-/// natural scrolling.
+/// Converts touch contact deltas into relative cursor motion.
+///
+/// Every active contact contributes to the touchpad centroid. This keeps a
+/// second finger from turning into a scroll/swipe event while preserving a
+/// stable cursor if the user briefly touches the surface with more than one
+/// finger.
 ///
 /// Contact callbacks drive this engine directly; unlike a thumbstick, a finger
 /// only owes motion when its position changes. Began/ended samples establish and
@@ -63,25 +69,15 @@ public struct TouchpadNavigationEngine: Sendable {
             let dy = event.position.y - previous.y
             guard dx != 0 || dy != 0 else { return [] }
 
-            let contacts = contactCount(for: event.controller.id)
-            if contacts >= 2 {
-                // Each contact callback contributes its half of the centroid's
-                // movement. Finger-up is positive in GameController; negating y
-                // makes content follow the fingers as natural scrolling does.
-                let divisor = Double(contacts)
-                return [
-                    .scroll(
-                        dx: dx * safe(settings.scrollPixelsPerUnit) / divisor,
-                        dy: -dy * safe(settings.scrollPixelsPerUnit) / divisor
-                    )
-                ]
-            }
-
-            guard event.contact == .primary else { return [] }
+            // Each contact callback contributes its fraction of the centroid's
+            // movement. Finger-up is positive in GameController, so invert y to
+            // match the screen's cursor coordinate system. No touchpad sample
+            // becomes a wheel or system-swipe event.
+            let divisor = Double(max(contactCount(for: event.controller.id), 1))
             return [
                 .moveCursor(
-                    dx: dx * safe(settings.pointerPixelsPerUnit),
-                    dy: -dy * safe(settings.pointerPixelsPerUnit)
+                    dx: dx * safe(settings.pointerPixelsPerUnit) / divisor,
+                    dy: -dy * safe(settings.pointerPixelsPerUnit) / divisor
                 )
             ]
         }

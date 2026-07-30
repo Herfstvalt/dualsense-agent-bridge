@@ -21,8 +21,8 @@ struct TouchpadNavigationTests {
         )
     }
 
-    @Test("two fingers scroll by their average movement instead of moving the cursor")
-    func twoFingersScroll() {
+    @Test("multiple fingers move the cursor by their average movement")
+    func multipleFingersMoveCursor() {
         var input = FakeControllerInput()
         var engine = TouchpadNavigationEngine(settings: settings)
 
@@ -31,11 +31,11 @@ struct TouchpadNavigationTests {
 
         #expect(
             engine.handle(input.touchEvent(.primary, .moved, x: -0.25, y: 0.25))
-                == [.scroll(dx: 5, dy: -5)]
+                == [.moveCursor(dx: 12.5, dy: -12.5)]
         )
         #expect(
             engine.handle(input.touchEvent(.secondary, .moved, x: 0.75, y: 0.25))
-                == [.scroll(dx: 5, dy: -5)]
+                == [.moveCursor(dx: 12.5, dy: -12.5)]
         )
     }
 
@@ -120,8 +120,8 @@ struct TouchpadBridgeTests {
         #expect(keyboard.emissions.isEmpty)
     }
 
-    @Test("two fingers scroll the real pointer boundary")
-    func twoFingersScrollPointerBoundary() {
+    @Test("multiple fingers move the real pointer boundary without scrolling")
+    func multipleFingersMovePointerBoundary() {
         var input = FakeControllerInput()
         let (bridge, pointer, _) = makeBridge()
 
@@ -129,7 +129,7 @@ struct TouchpadBridgeTests {
         bridge.handle(input.touch(.secondary, .began, x: 0.5, y: 0))
         bridge.handle(input.touch(.primary, .moved, x: -0.25, y: 0.25))
 
-        #expect(pointer.emissions == [.scroll(dx: 5, dy: -5)])
+        #expect(pointer.emissions == [.move(dx: 12, dy: -12)])
     }
 
     @Test("dry-run diagnostics show contact down and up without logging every sample")

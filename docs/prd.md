@@ -63,9 +63,9 @@ then adds a documented live hardware smoke test on the user's Mac.
     can listen while keeping my hands on the controller.
 17. As a privacy-conscious user, I want secrets and sensitive terminal noise
     redacted or bounded before speech, so that TTS does not expose credentials.
-18. As a controller user, I want the right stick or one touchpad finger to act
-    as a mouse and the left stick or two fingers to scroll, so that I can roam
-    through output.
+18. As a controller user, I want the right stick or touchpad contacts to act as
+    a mouse while the left stick remains the scroll control, so that touchpad
+    swipes cannot unexpectedly switch screens or scroll a session.
 19. As a controller user, I want deadzones, repeat rates, and mappings to be
     configurable, so that the controls feel natural on my hardware.
 20. As a user with multiple terminal applications, I want app-aware profiles,
@@ -108,8 +108,9 @@ then adds a documented live hardware smoke test on the user's Mac.
   (`Ctrl-B`, then `n`/`p`/`s`) and D-pad Up/Down for shell history. A literal
   session kill is never bound to a normal button.
 - Reserve R2 for left-button hold/drag and L2 for right-button hold/drag. Treat
-  one touchpad contact as relative cursor motion and two contacts as natural
-  scrolling; keep the physical touchpad click as its independent key binding.
+  every active touchpad contact as relative cursor motion using the contacts'
+  average travel; emit no touchpad scroll or system-swipe events. Keep the
+  physical touchpad click as its independent key binding.
 - Make tmux the canonical local control plane. The Session Bridge exposes
   list, select, focus/attach, send, interrupt, capture, and latest-response
   operations through typed interfaces.

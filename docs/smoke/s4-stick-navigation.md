@@ -58,11 +58,11 @@ Start `dualsense-bridge run --dry-run` and keep its terminal **not** frontmost.
       should produce a small number of lines, not a hundred.
 - [ ] Press Cross and R3 while a stick is held. Button lines appear interleaved
       with motion summaries; neither starves the other.
-- [ ] Move one finger across the touchpad. `touchpad primary began` is followed
-      by periodic `mouse` summaries, and `touchpad primary ended` appears on
-      lift. Landing the finger near an edge does not emit a large jump.
-- [ ] Move two fingers together. Output switches to `scroll` summaries and does
-      not also emit cursor movement.
+- [ ] Move one or more fingers across the touchpad. `touchpad primary began` is
+      followed by pointer movement, and `touchpad primary ended` appears on
+      lift. Landing a contact near an edge does not emit a large jump.
+- [ ] Move two fingers together. Output remains pointer movement only; no
+      `scroll` summary or system swipe is emitted.
 
 ## 2. Pointer direction and feel
 
@@ -101,7 +101,7 @@ With focus in a long terminal buffer or a web page:
 
 ## 4. Coexistence with keyboard bindings
 
-- [ ] Click R3 to start Wispr Flow, move the right stick or one touchpad finger,
+- [ ] Click R3 to start Wispr Flow, move the right stick or touchpad contacts,
       and click R3 again. Dictation stays active while the pointer moves.
 - [ ] Press Cross while a stick is held. Return is delivered once and motion is
       unaffected.
@@ -198,7 +198,7 @@ Fill this in during the hardware pass so the numbers survive the session.
 | --- | --- | --- | --- |
 | `pointer.deadzone` | 0.15 | | |
 | `pointer.responseExponent` | 2.0 | | |
-| `pointer.speed` | 700 | | |
+| `pointer.speed` | 1200 | | |
 | `scroll.deadzone` | 0.2 | | |
 | `scroll.responseExponent` | 2.0 | | |
 | `scroll.speed` | 500 | | |

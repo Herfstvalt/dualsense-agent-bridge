@@ -35,7 +35,7 @@ validated on a real DualSense.
   dry-run logging, version 1 and version 2 profile decoding, ordered tmux key
   sequences, starter-profile round trips, R2-left/L2-right ownership, drag,
   failure and cleanup behavior, plus one-finger touchpad pointer motion and
-  two-finger scrolling.
+  multi-contact pointer movement with no touchpad scrolling.
 - Deferred: controller-driven profile/layer switching, D-pad repeat scrolling,
   stick role swapping, configurable middle/arbitrary mouse buttons, and
   system-level three-/four-finger gestures — each recorded with its reason under

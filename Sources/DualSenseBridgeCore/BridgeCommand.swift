@@ -155,8 +155,9 @@ extension BridgeCommand {
         "navigation" section, so tuning them needs no rebuild. Use --dry-run to
         read the resulting motion as periodic summaries while tuning.
 
-        On a DualSense touch surface, one finger moves the pointer and two
-        fingers scroll. R2 holds the left mouse button; L2 holds the right.
+        On a DualSense touch surface, every active contact moves the pointer by
+        the contacts' average travel; touchpad input never scrolls or swipes.
+        R2 holds the left mouse button; L2 holds the right.
         """
 
     public static var controlsText: String {
