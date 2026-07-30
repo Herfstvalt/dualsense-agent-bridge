@@ -74,7 +74,7 @@ struct ControllerBridgeTests {
         #expect(bridge.heldKeys.isEmpty)
     }
 
-    @Test("D-pad Left, D-pad Right, and Options send the confirmed control shortcuts")
+    @Test("D-pad Left, D-pad Right, and Options send the confirmed Command shortcuts")
     func editingShortcutsEndToEnd() {
         var input = FakeControllerInput()
         let (bridge, sink) = makeBridge()
@@ -85,9 +85,9 @@ struct ControllerBridgeTests {
 
         #expect(
             sink.emissions == [
-                .down(.control), .down(.z), .up(.z), .up(.control),
-                .down(.control), .down(.c), .up(.c), .up(.control),
-                .down(.control), .down(.v), .up(.v), .up(.control),
+                .down(.command), .down(.z), .up(.z), .up(.command),
+                .down(.command), .down(.c), .up(.c), .up(.command),
+                .down(.command), .down(.v), .up(.v), .up(.command),
             ]
         )
         #expect(bridge.heldKeys.isEmpty)

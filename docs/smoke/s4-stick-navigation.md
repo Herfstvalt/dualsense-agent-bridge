@@ -114,9 +114,7 @@ With focus in a long terminal buffer or a web page:
 - [ ] Press D-pad Up and Down at a shell prompt. History moves one entry per
       press.
 - [ ] In a disposable target, press D-pad Left, D-pad Right, and Options. They
-      send Ctrl-Z, Ctrl-C, and Ctrl-V respectively. Do not run this check in a
-      live shell command: Ctrl-Z suspends and Ctrl-C interrupts normal terminal
-      processes.
+      send Command-Z, Command-C, and Command-V respectively.
 - [ ] Press the touchpad button. Control-backtick reaches the focused app.
 - [ ] Tap Square in a scratch prompt. It removes exactly one character as
       Backspace. Hold Square: after about 400 ms it repeats until release, then
@@ -186,7 +184,7 @@ With focus in a long terminal buffer or a web page:
 
 | Section | Status | Notes |
 | --- | --- | --- |
-| 0. Baseline without hardware | pass | `swift test` (279 tests, 23 suites) and `swift build -c release` pass; `controls` and `profile --starter` expose the repeat binding, confirmed Ctrl-Z/C/V shortcuts, and schema version 3. |
+| 0. Baseline without hardware | pass | `swift test` (279 tests, 23 suites) and `swift build -c release` pass; `controls` and `profile --starter` expose the repeat binding, confirmed Command-Z/C/V shortcuts, and schema version 3. |
 | 1. Stick/touchpad recognition | pending | Needs the paired DualSense in a GUI session. |
 | 2. Pointer direction and feel | pending | Subjective; the shipped defaults are a starting point, not a verdict. |
 | 3. Scroll direction and feel | pending | Horizontal wheel polarity in particular needs a real check; `scroll.invertX` exists for exactly that. |

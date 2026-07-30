@@ -82,9 +82,9 @@ previous value back when it stops.
 | `l3` | tapSequence | `control+b, s` (tmux session list) |
 | `dpadUp` | tap | `arrowUp` |
 | `dpadDown` | tap | `arrowDown` |
-| `dpadLeft` | tap | `control+z` (resize/undo action) |
-| `dpadRight` | tap | `control+c` (copy-last action; terminal interrupt elsewhere) |
-| `options` | tap | `control+v` (paste action) |
+| `dpadLeft` | tap | `command+z` (resize/undo action) |
+| `dpadRight` | tap | `command+c` (copy-last action) |
+| `options` | tap | `command+v` (paste action) |
 
 | Control | Action |
 | --- | --- |

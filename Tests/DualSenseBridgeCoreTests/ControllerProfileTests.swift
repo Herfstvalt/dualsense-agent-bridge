@@ -87,9 +87,9 @@ struct ControllerProfileTests {
         #expect(profile.binding(for: .touchpadButton) == .tap(KeyStroke(key: .grave, modifiers: .control)))
         #expect(profile.binding(for: .dpadUp) == .tap(KeyStroke(key: .arrowUp)))
         #expect(profile.binding(for: .dpadDown) == .tap(KeyStroke(key: .arrowDown)))
-        #expect(profile.binding(for: .dpadLeft) == .tap(KeyStroke(key: .z, modifiers: .control)))
-        #expect(profile.binding(for: .dpadRight) == .tap(KeyStroke(key: .c, modifiers: .control)))
-        #expect(profile.binding(for: .options) == .tap(KeyStroke(key: .v, modifiers: .control)))
+        #expect(profile.binding(for: .dpadLeft) == .tap(KeyStroke(key: .z, modifiers: .command)))
+        #expect(profile.binding(for: .dpadRight) == .tap(KeyStroke(key: .c, modifiers: .command)))
+        #expect(profile.binding(for: .options) == .tap(KeyStroke(key: .v, modifiers: .command)))
     }
 
     @Test("the starter profile leaves the mic button and both pointer triggers out of keyboard routing")
@@ -125,15 +125,17 @@ struct ControllerProfileTests {
         #expect(decoded == ControllerProfile.starterTerminal)
     }
 
-    @Test("the only Command shortcut remains the requested Triangle action")
+    @Test("Command shortcuts are limited to the confirmed editing set and Triangle action")
     func elevatedBindingsAreExplicit() {
         let profile = ControllerProfile.starterTerminal
 
         #expect(profile.binding(for: .square) == .repeatWhileHeld(KeyStroke(key: .delete)))
         #expect(
-            profile.bindings
-                .filter { $0.value.strokes.contains { $0.modifiers.contains(.command) } }
-                .map(\.key) == [.triangle]
+            Set(
+                profile.bindings
+                    .filter { $0.value.strokes.contains { $0.modifiers.contains(.command) } }
+                    .map(\.key)
+            ) == [.dpadLeft, .dpadRight, .options, .triangle]
         )
     }
 
