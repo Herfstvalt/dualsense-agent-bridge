@@ -5,6 +5,9 @@ public enum ControllerBinding: Hashable, Sendable {
     /// Press the shortcut on button-down and release it on button-up. This is
     /// the shape Wispr Flow press-to-talk needs.
     case hold(KeyStroke)
+    /// Hold the shortcut and emit native-style repeat events until button-up.
+    /// This is intended for editing/navigation keys such as Backspace.
+    case repeatWhileHeld(KeyStroke)
     /// Emit a complete key-down/key-up pair on button-down.
     case tap(KeyStroke)
     /// Emit several complete key-down/key-up pairs in order on button-down.
@@ -19,7 +22,7 @@ public enum ControllerBinding: Hashable, Sendable {
     /// Every shortcut this binding involves, in the order it is sent.
     public var strokes: [KeyStroke] {
         switch self {
-        case .hold(let stroke), .tap(let stroke): [stroke]
+        case .hold(let stroke), .repeatWhileHeld(let stroke), .tap(let stroke): [stroke]
         case .tapSequence(let strokes): strokes
         }
     }
@@ -32,6 +35,7 @@ public enum ControllerBinding: Hashable, Sendable {
     var kindName: String {
         switch self {
         case .hold: "hold"
+        case .repeatWhileHeld: "repeat"
         case .tap: "tap"
         case .tapSequence: "tapSequence"
         }
@@ -62,7 +66,7 @@ public enum ProfileValidationError: Error, Hashable, Sendable, CustomStringConve
         case .unknownControl(let name):
             return #"Unknown controller control "\#(name)". Run "dualsense-bridge controls" to list supported names."#
         case .unknownBindingKind(let control, let kind):
-            return #"Binding for "\#(control)" uses unknown kind "\#(kind)". Use "hold", "tap", or "tapSequence"."#
+            return #"Binding for "\#(control)" uses unknown kind "\#(kind)". Use "hold", "repeat", "tap", or "tapSequence"."#
         case .invalidShortcut(let control, let text, let reason):
             return #"Binding for "\#(control)" has an invalid shortcut "\#(text)". \#(reason)"#
         case .emptyTapSequence(let control):
@@ -78,13 +82,15 @@ public enum ProfileValidationError: Error, Hashable, Sendable, CustomStringConve
 /// A named, versioned set of control bindings and navigation settings.
 public struct ControllerProfile: Hashable, Sendable {
     /// The version this build writes.
-    public static let currentSchemaVersion = 2
+    public static let currentSchemaVersion = 3
     /// Every version this build can read.
     ///
     /// Version 1 is the S1 format: bindings only, no navigation section. It is
     /// still accepted and gets the default navigation settings, so upgrading the
     /// bridge never invalidates a profile a user already tuned.
-    public static let supportedSchemaVersions = 1...2
+    /// Version 3 adds explicit key-repeat bindings; versions 1 and 2 remain
+    /// readable and ordinary hold/tap behavior is unchanged.
+    public static let supportedSchemaVersions = 1...3
 
     public let schemaVersion: Int
     public let name: String
@@ -125,8 +131,9 @@ public struct ControllerProfile: Hashable, Sendable {
 
     /// The default terminal profile.
     ///
-    /// `r3` taps the Wispr Flow toggle. `cross` sends Enter, `circle` cancels with
-    /// Escape, Square sends Backspace, and the D-pad walks shell history.
+    /// `r3` holds the Wispr Flow toggle chord for the physical click. `cross`
+    /// sends Enter, `circle` cancels with Escape, Square sends Backspace and
+    /// repeats while held, and the D-pad walks shell history.
     ///
     /// The shoulders drive tmux through its prefix: `r1` and `l1` step between
     /// windows and `l3` opens the session list. Each is a sequence rather than a
@@ -143,10 +150,10 @@ public struct ControllerProfile: Hashable, Sendable {
     public static let starterTerminal = ControllerProfile(
         name: "starter-terminal",
         bindings: [
-            .r3: .tap(KeyStroke(key: .s, modifiers: .control)),
+            .r3: .hold(KeyStroke(key: .s, modifiers: .control)),
             .cross: .tap(KeyStroke(key: .return)),
             .circle: .tap(KeyStroke(key: .escape)),
-            .square: .tap(KeyStroke(key: .delete)),
+            .square: .repeatWhileHeld(KeyStroke(key: .delete)),
             .triangle: .tap(KeyStroke(key: .f5, modifiers: [.option, .command])),
             .touchpadButton: .tap(KeyStroke(key: .grave, modifiers: .control)),
             .r1: .tapSequence([tmuxPrefix, KeyStroke(key: .n)]),
@@ -261,6 +268,10 @@ extension ControllerProfile {
             switch storedBinding.kind {
             case "hold":
                 bindings[control] = .hold(try Self.parseStroke(storedBinding.keys, for: controlName))
+            case "repeat":
+                bindings[control] = .repeatWhileHeld(
+                    try Self.parseStroke(storedBinding.keys, for: controlName)
+                )
             case "tap":
                 bindings[control] = .tap(try Self.parseStroke(storedBinding.keys, for: controlName))
             case "tapSequence":

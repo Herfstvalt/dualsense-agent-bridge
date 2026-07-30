@@ -62,12 +62,12 @@ struct ControllerProfileTests {
         #expect(profile.binding(for: .r2) == nil)
         #expect(profile.binding(for: .cross) == .tap(KeyStroke(key: .return)))
         #expect(profile.binding(for: .circle) == .tap(KeyStroke(key: .escape)))
-        #expect(profile.binding(for: .square) == .tap(KeyStroke(key: .delete)))
+        #expect(profile.binding(for: .square) == .repeatWhileHeld(KeyStroke(key: .delete)))
         #expect(
             profile.binding(for: .triangle)
                 == .tap(KeyStroke(key: .f5, modifiers: [.option, .command]))
         )
-        #expect(profile.binding(for: .r3) == .tap(KeyStroke(key: .s, modifiers: .control)))
+        #expect(profile.binding(for: .r3) == .hold(KeyStroke(key: .s, modifiers: .control)))
     }
 
     @Test("the starter profile drives tmux windows and sessions from the shoulders")
@@ -125,7 +125,7 @@ struct ControllerProfileTests {
     func elevatedBindingsAreExplicit() {
         let profile = ControllerProfile.starterTerminal
 
-        #expect(profile.binding(for: .square) == .tap(KeyStroke(key: .delete)))
+        #expect(profile.binding(for: .square) == .repeatWhileHeld(KeyStroke(key: .delete)))
         #expect(
             profile.bindings
                 .filter { $0.value.strokes.contains { $0.modifiers.contains(.command) } }
@@ -212,8 +212,8 @@ struct ControllerProfileTests {
                 == #"Unknown controller control "triangleish". Run "dualsense-bridge controls" to list supported names."#
         )
         #expect(
-            ProfileValidationError.unsupportedSchemaVersion(found: 99, supported: 1...2).description
-                == "Profile schemaVersion 99 is not supported by this build, which understands versions 1 through 2."
+            ProfileValidationError.unsupportedSchemaVersion(found: 99, supported: 1...3).description
+                == "Profile schemaVersion 99 is not supported by this build, which understands versions 1 through 3."
         )
         #expect(
             ProfileValidationError.unsupportedSchemaVersion(found: 99, supported: 1...1).description
@@ -221,7 +221,7 @@ struct ControllerProfileTests {
         )
         #expect(
             ProfileValidationError.unknownBindingKind(control: "cross", kind: "toggle").description
-                == #"Binding for "cross" uses unknown kind "toggle". Use "hold", "tap", or "tapSequence"."#
+                == #"Binding for "cross" uses unknown kind "toggle". Use "hold", "repeat", "tap", or "tapSequence"."#
         )
     }
 
@@ -229,9 +229,9 @@ struct ControllerProfileTests {
     func profileSummary() {
         let summary = ControllerProfile.starterTerminal.summaryLines
         #expect(summary.contains("cross -> tap return"))
-        #expect(summary.contains("square -> tap delete"))
+        #expect(summary.contains("square -> repeat delete"))
         #expect(summary.contains("triangle -> tap option+command+f5"))
-        #expect(summary.contains("r3 -> tap control+s"))
+        #expect(summary.contains("r3 -> hold control+s"))
         // A sequence has to be readable here too, or the CLI cannot explain what
         // a shoulder button will actually send.
         #expect(summary.contains("r1 -> tapSequence control+b, n"))

@@ -177,7 +177,8 @@ extension BridgeCommand {
             + controls
             + [
                 "",
-                "Binding kinds: hold, tap, tapSequence",
+                "Binding kinds: hold, repeat, tap, tapSequence",
+                "repeat example: delete (press once, then hold to repeat)",
                 "tapSequence example: control+b, n",
             ])
             .joined(separator: "\n")

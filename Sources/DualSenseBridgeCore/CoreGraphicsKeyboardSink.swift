@@ -33,15 +33,19 @@ public final class CoreGraphicsKeyboardSink: KeyboardSink {
     }
 
     public func keyDown(_ key: KeyCode) throws {
-        try post(key, isDown: true)
+        try post(key, isDown: true, isRepeat: false)
+    }
+
+    public func keyRepeat(_ key: KeyCode) throws {
+        try post(key, isDown: true, isRepeat: true)
     }
 
     public func keyUp(_ key: KeyCode) throws {
-        try post(key, isDown: false)
+        try post(key, isDown: false, isRepeat: false)
     }
 
-    private func post(_ key: KeyCode, isDown: Bool) throws {
-        if let modifier = key.modifier {
+    private func post(_ key: KeyCode, isDown: Bool, isRepeat: Bool) throws {
+        if let modifier = key.modifier, !isRepeat {
             if isDown {
                 heldModifiers.insert(modifier)
             } else {
@@ -57,7 +61,7 @@ public final class CoreGraphicsKeyboardSink: KeyboardSink {
             )
         else {
             // Keep bookkeeping honest if the event could not be created.
-            if let modifier = key.modifier, isDown {
+            if let modifier = key.modifier, isDown, !isRepeat {
                 heldModifiers.remove(modifier)
             }
             throw Failure.eventCreationFailed(key)
@@ -65,6 +69,9 @@ public final class CoreGraphicsKeyboardSink: KeyboardSink {
 
         if key.modifier != nil {
             event.type = .flagsChanged
+        }
+        if isRepeat {
+            event.setIntegerValueField(.keyboardEventAutorepeat, value: 1)
         }
         event.flags = currentFlags
         event.post(tap: tapLocation)

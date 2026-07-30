@@ -33,14 +33,14 @@ input, which is the failure mode already recorded for S1.
 - [ ] `dualsense-bridge doctor` prints a `Navigation:` block showing both sticks,
       their deadzone, curve, and speed, plus the tick rate and stall clamp.
 - [ ] `dualsense-bridge profile --starter` contains a `navigation` section and
-      `"schemaVersion": 2`.
+      `"schemaVersion": 3`.
 - [ ] An existing S1 profile (no `navigation` key, `"schemaVersion": 1`) still
       loads: `dualsense-bridge doctor --profile <old file>` reports it and shows
       the default navigation values.
-- [ ] `dualsense-bridge profile --starter` shows `r3` on `control+s`, Square on
-      Backspace, Triangle on `option+command+f5`, the three `tapSequence`
-      bindings for `r1`/`l1`/`l3`, `touchpadButton` on `control+grave`, and no
-      keyboard binding for R2 or L2.
+- [ ] `dualsense-bridge profile --starter` shows R3 as `hold control+s`, Square
+      as `repeat delete`, Triangle on `option+command+f5`, the three
+      `tapSequence` bindings for `r1`/`l1`/`l3`, `touchpadButton` on
+      `control+grave`, and no keyboard binding for R2 or L2.
 - [ ] Feeding that same output back in with `--profile` loads cleanly, which is
       what proves the sequence and arrow-key spellings can be read back.
 
@@ -114,8 +114,9 @@ With focus in a long terminal buffer or a web page:
 - [ ] Press D-pad Up and Down at a shell prompt. History moves one entry per
       press.
 - [ ] Press the touchpad button. Control-backtick reaches the focused app.
-- [ ] Press Square in a scratch prompt. It removes exactly one character as
-      Backspace.
+- [ ] Tap Square in a scratch prompt. It removes exactly one character as
+      Backspace. Hold Square: after about 400 ms it repeats until release, then
+      stops immediately.
 - [ ] Press Triangle. macOS Accessibility Shortcuts opens; from there the
       Accessibility Keyboard can be enabled. Close the panel without changing
       unrelated accessibility settings.
@@ -181,7 +182,7 @@ With focus in a long terminal buffer or a web page:
 
 | Section | Status | Notes |
 | --- | --- | --- |
-| 0. Baseline without hardware | pass | `swift test` (275 tests, 22 suites) and a release build pass with no warnings; `doctor`, `profile --starter`, and a version 1 profile without a `navigation` section were all verified. |
+| 0. Baseline without hardware | pass | `swift test` (278 tests, 23 suites) and `swift build -c release` pass; `controls` and `profile --starter` expose the new repeat binding and schema version 3. |
 | 1. Stick/touchpad recognition | pending | Needs the paired DualSense in a GUI session. |
 | 2. Pointer direction and feel | pending | Subjective; the shipped defaults are a starting point, not a verdict. |
 | 3. Scroll direction and feel | pending | Horizontal wheel polarity in particular needs a real check; `scroll.invertX` exists for exactly that. |

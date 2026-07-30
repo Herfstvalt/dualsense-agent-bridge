@@ -128,9 +128,10 @@ public final class ControllerBridge {
         keyboard: SyntheticKeyboard,
         pointer: SyntheticPointer? = nil,
         touchpadSettings: TouchpadNavigationSettings = .default,
+        keyRepeatSettings: KeyRepeatSettings = .default,
         log: ((String) -> Void)? = nil
     ) {
-        self.router = ActionRouter(profile: profile)
+        self.router = ActionRouter(profile: profile, keyRepeatSettings: keyRepeatSettings)
         self.navigation = NavigationEngine(settings: profile.navigation)
         self.touchpadNavigation = TouchpadNavigationEngine(settings: touchpadSettings)
         self.keyboard = keyboard
@@ -204,14 +205,21 @@ public final class ControllerBridge {
         return steps
     }
 
-    /// Produces the motion owed since the previous tick.
+    /// Advances clock-driven keyboard repeat and produces any motion owed since
+    /// the previous tick.
     ///
     /// This is what makes a *held* stick keep moving: the input framework reports
     /// a stick only when its value changes, so nothing but a clock can tell the
     /// difference between "released" and "still pushed".
     @discardableResult
     public func tick(at now: Double) -> [NavigationStep] {
-        guard !isStopped, let pointer else { return [] }
+        guard !isStopped else { return [] }
+
+        for action in router.repeatActions(at: now) {
+            _ = keyboard.perform(action)
+        }
+
+        guard let pointer else { return [] }
 
         let outputs = navigation.tick(at: now)
         guard !outputs.isEmpty else {

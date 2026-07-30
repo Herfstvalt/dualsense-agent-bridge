@@ -94,13 +94,15 @@ struct ActionRouterTests {
         #expect(router.handle(input.press(.cross)) == [.tap(KeyStroke(key: .return))])
     }
 
-    @Test("Circle taps Escape and R3 taps the Wispr Flow toggle")
+    @Test("Circle taps Escape and R3 holds the Wispr Flow toggle for the physical click")
     func circleAndDictationToggle() {
         var input = FakeControllerInput()
         var router = ActionRouter(profile: Self.wisprTestProfile)
 
         #expect(router.handle(input.press(.circle)) == [.tap(KeyStroke(key: .escape))])
-        #expect(router.handle(input.press(.r3)) == [.tap(KeyStroke(key: .s, modifiers: .control))])
+        let wisprToggle = KeyStroke(key: .s, modifiers: .control)
+        #expect(router.handle(input.press(.r3)) == [.beginHold(wisprToggle)])
+        #expect(router.handle(input.release(.r3)) == [.endHold(wisprToggle)])
     }
 
     @Test("Square deletes and Triangle opens macOS Accessibility Shortcuts")
@@ -108,7 +110,8 @@ struct ActionRouterTests {
         var input = FakeControllerInput()
         var router = ActionRouter(profile: Self.wisprTestProfile)
 
-        #expect(router.handle(input.press(.square)) == [.tap(KeyStroke(key: .delete))])
+        #expect(router.handle(input.press(.square)) == [.beginHold(KeyStroke(key: .delete))])
+        #expect(router.handle(input.release(.square)) == [.endHold(KeyStroke(key: .delete))])
         #expect(
             router.handle(input.press(.triangle))
                 == [.tap(KeyStroke(key: .f5, modifiers: [.option, .command]))]

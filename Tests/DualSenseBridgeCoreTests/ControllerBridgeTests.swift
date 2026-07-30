@@ -48,6 +48,7 @@ struct ControllerBridgeTests {
 
         bridge.handle(input.press(.circle))
         bridge.handle(input.press(.r3))
+        bridge.handle(input.release(.r3))
 
         #expect(
             sink.emissions == [

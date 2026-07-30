@@ -1,17 +1,19 @@
 /// A single synthetic key transition.
 public enum KeyEmission: Hashable, Sendable, CustomStringConvertible {
     case down(KeyCode)
+    case `repeat`(KeyCode)
     case up(KeyCode)
 
     public var key: KeyCode {
         switch self {
-        case .down(let key), .up(let key): key
+        case .down(let key), .repeat(let key), .up(let key): key
         }
     }
 
     public var description: String {
         switch self {
         case .down(let key): "down \(key.canonicalName)"
+        case .repeat(let key): "repeat \(key.canonicalName)"
         case .up(let key): "up \(key.canonicalName)"
         }
     }
@@ -24,6 +26,7 @@ public enum KeyEmission: Hashable, Sendable, CustomStringConvertible {
 /// by key.
 public protocol KeyboardSink: AnyObject {
     func keyDown(_ key: KeyCode) throws
+    func keyRepeat(_ key: KeyCode) throws
     func keyUp(_ key: KeyCode) throws
 }
 
@@ -36,6 +39,10 @@ public final class RecordingKeyboardSink: KeyboardSink {
 
     public func keyDown(_ key: KeyCode) throws {
         emissions.append(.down(key))
+    }
+
+    public func keyRepeat(_ key: KeyCode) throws {
+        emissions.append(.repeat(key))
     }
 
     public func keyUp(_ key: KeyCode) throws {
@@ -65,6 +72,10 @@ public final class LoggingKeyboardSink: KeyboardSink {
 
     public func keyDown(_ key: KeyCode) throws {
         log(KeyEmission.down(key).description)
+    }
+
+    public func keyRepeat(_ key: KeyCode) throws {
+        log(KeyEmission.repeat(key).description)
     }
 
     public func keyUp(_ key: KeyCode) throws {

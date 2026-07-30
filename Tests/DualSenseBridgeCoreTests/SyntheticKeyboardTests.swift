@@ -15,6 +15,10 @@ final class FlakyKeyboardSink: KeyboardSink {
         emissions.append(.down(key))
     }
 
+    func keyRepeat(_ key: KeyCode) throws {
+        emissions.append(.repeat(key))
+    }
+
     func keyUp(_ key: KeyCode) throws {
         if failAllUps { throw Failure() }
         emissions.append(.up(key))

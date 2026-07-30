@@ -6,7 +6,7 @@ sessions on macOS.
 The project is intended to make Codex, Claude Code, and other tmux-backed
 sessions usable from a controller plus Wispr Flow:
 
-- R3 starts/stops Wispr Flow through its Ctrl-S toggle shortcut;
+- R3 starts/stops Wispr Flow through a reliably held Ctrl-S toggle shortcut;
 - Cross sends Enter and Circle cancels;
 - the shoulder buttons drive tmux windows and the session list;
 - the D-pad walks shell history;
@@ -71,10 +71,10 @@ previous value back when it stops.
 
 | Control | Action | Keys |
 | --- | --- | --- |
-| `r3` | tap | `control+s` (Wispr Flow toggle) |
+| `r3` | hold for physical click | `control+s` (Wispr Flow toggle) |
 | `cross` | tap | `return` |
 | `circle` | tap | `escape` |
-| `square` | tap | `delete` (Backspace) |
+| `square` | repeat | `delete` (Backspace) |
 | `triangle` | tap | `option+command+f5` (Accessibility Shortcuts) |
 | `touchpadButton` | tap | `control+grave` |
 | `r1` | tapSequence | `control+b, n` (tmux next window) |
@@ -99,11 +99,16 @@ is only an ordered list — there are no delays, repeats, or nesting, because a
 binding that can express timing stops being a binding and becomes a macro
 language.
 
+A `repeat` binding sends one key-down immediately, waits 400 ms, then emits
+native repeat events every 50 ms until the controller button is released. This
+gives Square normal keyboard-style Backspace behavior: tap for one deletion or
+hold to keep deleting.
+
 The DualSense mic button keeps its hardware mute, while R2 and L2 belong to the
-pointer boundary rather than keyboard routing. Square is deliberately Backspace.
-Triangle opens macOS Accessibility Shortcuts, the supported route to enable the
-on-screen Accessibility Keyboard. Those face-button mappings remain ordinary
-profile data and can be replaced.
+pointer boundary rather than keyboard routing. Square is deliberately a
+repeating Backspace. Triangle opens macOS Accessibility Shortcuts, the supported
+route to enable the on-screen Accessibility Keyboard. Those face-button
+mappings remain ordinary profile data and can be replaced.
 
 ### Stick and touchpad navigation
 
@@ -177,10 +182,12 @@ Both pointer and scroll output need the same Accessibility permission as the
 keyboard, and it is re-read per event: revoking it mid-motion stops the cursor
 rather than latching it.
 
-Set Wispr Flow's toggle shortcut to Ctrl-S for the starter R3 mapping. If you
-prefer press-to-talk, add a `hold` binding to a non-trigger control and set Wispr
-Flow to the same chord. Any unique chord built from `control`, `option`, `shift`,
-and `command` plus one key works; `fn` cannot be emitted synthetically and is
+Set Wispr Flow's toggle shortcut to Ctrl-S for the starter R3 mapping. The
+bridge keeps Ctrl-S down for the duration of the physical click, avoiding the
+zero-duration tap that some global-shortcut listeners miss. If you prefer
+press-to-talk, add a `hold` binding to a non-trigger control and set Wispr Flow
+to the same chord. Any unique chord built from `control`, `option`, `shift`, and
+`command` plus one key works; `fn` cannot be emitted synthetically and is
 rejected with an explanation.
 
 ### Changing the mapping
@@ -203,18 +210,20 @@ refused with a message instead of being silently ignored, so a typo cannot
 quietly disable a binding or hand the cursor an absurd speed. Use
 `--profile <path>` to load a profile from another location.
 
-A binding's `kind` is `hold`, `tap`, or `tapSequence`. A `tapSequence` lists its
-shortcuts in order, separated by commas — `"keys": "control+b, n"` — and an empty
-list is refused rather than accepted as a binding that does nothing.
+A binding's `kind` is `hold`, `repeat`, `tap`, or `tapSequence`. `repeat` is for
+one-key editing/navigation bindings that should fire once and then repeat while
+held. A `tapSequence` lists its shortcuts in order, separated by commas —
+`"keys": "control+b, n"` — and an empty list is refused rather than accepted as
+a binding that does nothing.
 
-Schema version 2 adds the `navigation` section. Version 1 profiles — bindings
-only — still load and simply get the default navigation settings, so upgrading
-the bridge never invalidates a mapping you already tuned. Inside `navigation`
-every field is optional, so an experiment can be two lines:
+Schema version 2 adds the `navigation` section, and version 3 adds `repeat`
+bindings. Version 1 and 2 profiles still load, so upgrading the bridge never
+invalidates a mapping you already tuned. Inside `navigation` every field is
+optional, so an experiment can be two lines:
 
 ```json
 {
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "name": "slower-pointer",
   "bindings": { "cross": { "kind": "tap", "keys": "return" } },
   "navigation": { "pointer": { "speed": 400 } }

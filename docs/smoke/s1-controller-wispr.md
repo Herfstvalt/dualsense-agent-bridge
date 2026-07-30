@@ -71,8 +71,9 @@ transcripts, credentials, or absolute home paths into the results.
 
 Run `dualsense-bridge run` (not dry-run) with focus in a text field.
 
-- [ ] Press R3. Wispr Flow starts dictating through its Ctrl-S toggle.
-- [ ] Speak a short phrase, then press R3 again. Dictation stops and the
+- [ ] Click R3 once (press and release). Wispr Flow starts dictating through its
+      Ctrl-S toggle; the bridge holds the chord for the physical click.
+- [ ] Speak a short phrase, then click R3 again. Dictation stops and the
       transcript is inserted.
 - [ ] If a custom `hold` binding was prepared, hold it, speak, and release it.
       Wispr starts and stops on the physical edges with no stuck modifier.
@@ -88,6 +89,9 @@ With focus in a real terminal running an interactive agent session:
 - [ ] Click the right stick (R3). Wispr Flow toggles dictation using Ctrl-S;
       click R3 again and confirm dictation stops. No command is interrupted and
       no other window is affected.
+- [ ] Tap Square in a scratch prompt and confirm one character is removed. Hold
+      Square and confirm Backspace begins repeating after about 400 ms, then
+      stops immediately on release.
 
 ## 5. Interruption and cleanup
 
@@ -132,9 +136,9 @@ even if permission is revoked mid-hold.
 
 | Section | Status | Notes |
 | --- | --- | --- |
-| 0. Baseline without hardware | pass | `swift test` (122 tests) and a clean release build pass with no warnings; `doctor`, `profile --starter`, `controls`, and `run --dry-run` verified, including the background-events line and clean shutdown on signal. |
+| 0. Baseline without hardware | pass | `swift test` (278 tests, 23 suites) and `swift build -c release` pass; the starter profile exports R3 as `hold control+s` and Square as `repeat delete`. |
 | 1. Permission boundary | pending | Needs a machine where Accessibility can be toggled for the host terminal. |
-| 2. Controller recognition | partial | A plain SSH launch discovered the controller but received no HID events. Re-running in the logged-in iTerm GUI session connected successfully and logged Cross, Circle, L2 press/release, face buttons, shoulders, D-pad, PS, and Options. R3 and the unbound mic button still need an explicit repeat. |
+| 2. Controller recognition | partial | A plain SSH launch discovered the controller but received no HID events. Re-running in the logged-in GUI session connected successfully and logged the bound buttons, including both physical edges of R3. The intentionally unbound mic button still needs a no-binding check. |
 | 3. Wispr Flow press-to-talk | pending | Wispr Flow is installed and running on the hardware-test Mac; real shortcut activation and dictation remain unverified. |
 | 4. Terminal actions | pending | Cross→Return and Circle→Escape passed in dry-run; real synthetic output and the current R3→Ctrl-S Wispr toggle remain unverified. |
 | 5. Interruption and cleanup | pending | Requires a connected controller; automated coverage exists for disconnect and shutdown release. |

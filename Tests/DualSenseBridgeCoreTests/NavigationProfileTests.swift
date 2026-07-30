@@ -32,12 +32,13 @@ struct NavigationProfileTests {
         #expect(profile.schemaVersion == ControllerProfile.currentSchemaVersion)
     }
 
-    @Test("the current schema version is newer than the S1 one and both are accepted")
+    @Test("the current schema preserves compatibility with earlier profiles")
     func supportedVersions() {
-        #expect(ControllerProfile.currentSchemaVersion == 2)
+        #expect(ControllerProfile.currentSchemaVersion == 3)
         #expect(ControllerProfile.supportedSchemaVersions.contains(1))
         #expect(ControllerProfile.supportedSchemaVersions.contains(2))
-        #expect(!ControllerProfile.supportedSchemaVersions.contains(3))
+        #expect(ControllerProfile.supportedSchemaVersions.contains(3))
+        #expect(!ControllerProfile.supportedSchemaVersions.contains(4))
     }
 
     @Test("an unsupported schema version is still refused and named")

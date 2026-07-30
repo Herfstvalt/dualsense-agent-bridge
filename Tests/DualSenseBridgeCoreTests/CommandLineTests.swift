@@ -161,6 +161,7 @@ struct CommandLineTests {
     func controlsListingNamesBindingKinds() {
         let listing = BridgeCommand.controlsText
 
+        #expect(listing.contains("repeat"))
         #expect(listing.contains("tapSequence"))
         #expect(listing.contains("control+b, n"))
     }

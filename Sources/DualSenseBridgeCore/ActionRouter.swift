@@ -7,6 +7,8 @@ public enum BridgeAction: Hashable, Sendable, CustomStringConvertible {
     case beginHold(KeyStroke)
     /// Release a shortcut that `beginHold` started.
     case endHold(KeyStroke)
+    /// Emit an autorepeat key-down for the base key of an active hold.
+    case repeatHeld(KeyStroke)
     /// Emit a complete key-down/key-up pair.
     case tap(KeyStroke)
     /// Release every synthetic key still held, whatever started it.
@@ -19,6 +21,7 @@ public enum BridgeAction: Hashable, Sendable, CustomStringConvertible {
         switch self {
         case .beginHold(let stroke): "beginHold(\(stroke))"
         case .endHold(let stroke): "endHold(\(stroke))"
+        case .repeatHeld(let stroke): "repeatHeld(\(stroke))"
         case .tap(let stroke): "tap(\(stroke))"
         case .releaseAllHeldKeys: "releaseAllHeldKeys"
         case .unmapped(let control): "unmapped(\(control.rawValue))"
@@ -39,20 +42,26 @@ public struct ActionRouter: Sendable {
 
     public private(set) var profile: ControllerProfile
     private var activeHolds: [HoldKey: KeyStroke] = [:]
+    private var repeats: KeyRepeatEngine
 
-    public init(profile: ControllerProfile) {
+    public init(profile: ControllerProfile, keyRepeatSettings: KeyRepeatSettings = .default) {
         self.profile = profile
+        self.repeats = KeyRepeatEngine(settings: keyRepeatSettings)
     }
 
     /// How many controls are currently considered held. Exposed for diagnostics
     /// and for tests that assert cleanup actually happened.
-    public var heldControlCount: Int { activeHolds.count }
+    public var heldControlCount: Int { activeHolds.count + repeats.count }
 
     /// The shortcuts the router believes are currently held, in stable order.
     public var heldStrokes: [KeyStroke] {
-        activeHolds
-            .sorted { ($0.key.controller, $0.key.control.rawValue) < ($1.key.controller, $1.key.control.rawValue) }
+        let holds = activeHolds
+            .sorted {
+                ($0.key.controller, $0.key.control.rawValue)
+                    < ($1.key.controller, $1.key.control.rawValue)
+            }
             .map(\.value)
+        return holds + repeats.strokes
     }
 
     public mutating func handle(_ input: ControllerInput) -> [BridgeAction] {
@@ -67,24 +76,32 @@ public struct ActionRouter: Sendable {
         case .connected(let controller):
             // A reconnect can never inherit holds from a previous session. This
             // is scoped rather than global precisely because it does not sweep.
-            return endHolds(for: controller)
+            return endHolds(for: controller) + repeats.stop(controller: controller)
         case .disconnected(let controller):
             // The leaving controller's holds end first so the log reads in the
             // right order, then every remaining hold ends too: the sweep below
             // releases every physical key, so keeping any hold recorded would
             // leave the router claiming a key that is no longer down.
-            return endHolds(for: controller) + endAllHolds() + [.releaseAllHeldKeys]
+            let departing = endHolds(for: controller) + repeats.stop(controller: controller)
+            let remaining = endAllHolds() + repeats.stopAll()
+            return departing + remaining + [.releaseAllHeldKeys]
         case .shutdown:
-            return endAllHolds() + [.releaseAllHeldKeys]
+            return endAllHolds() + repeats.stopAll() + [.releaseAllHeldKeys]
         }
     }
 
     /// Swaps the active profile, ending anything currently held first so a
     /// mapping change cannot leave a key latched.
     public mutating func replaceProfile(with profile: ControllerProfile) -> [BridgeAction] {
-        let cleanup = endAllHolds() + [.releaseAllHeldKeys]
+        let cleanup = endAllHolds() + repeats.stopAll() + [.releaseAllHeldKeys]
         self.profile = profile
         return cleanup
+    }
+
+    /// Keyboard repeat owed at this point on the same monotonic clock used by
+    /// controller events.
+    public mutating func repeatActions(at now: Double) -> [BridgeAction] {
+        repeats.tick(at: now)
     }
 
     // MARK: - Button handling
@@ -115,6 +132,22 @@ public struct ActionRouter: Sendable {
             return strokes.map { .tap($0) }
         case (.tapSequence, .released):
             return []
+        case (.repeatWhileHeld(let stroke), .pressed):
+            return repeats.start(
+                owner: KeyRepeatEngine.Owner(
+                    controller: event.controller.id,
+                    control: event.control
+                ),
+                stroke: stroke,
+                at: event.timestamp
+            )
+        case (.repeatWhileHeld, .released):
+            return repeats.stop(
+                owner: KeyRepeatEngine.Owner(
+                    controller: event.controller.id,
+                    control: event.control
+                )
+            )
         case (.hold(let stroke), .pressed):
             // A duplicate press must not emit a second key-down; the key is
             // already down and only one release will follow.
