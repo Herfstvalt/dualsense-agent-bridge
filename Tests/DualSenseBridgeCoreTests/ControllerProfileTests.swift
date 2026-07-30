@@ -87,7 +87,13 @@ struct ControllerProfileTests {
         #expect(profile.binding(for: .touchpadButton) == .tap(KeyStroke(key: .grave, modifiers: .control)))
         #expect(profile.binding(for: .dpadUp) == .tap(KeyStroke(key: .arrowUp)))
         #expect(profile.binding(for: .dpadDown) == .tap(KeyStroke(key: .arrowDown)))
-        #expect(profile.binding(for: .dpadLeft) == .tap(KeyStroke(key: .z, modifiers: .command)))
+        #expect(
+            profile.binding(for: .dpadLeft)
+                == .tapSequence([
+                    KeyStroke(key: .b, modifiers: .control),
+                    KeyStroke(key: .z),
+                ])
+        )
         #expect(profile.binding(for: .dpadRight) == .tap(KeyStroke(key: .c, modifiers: .command)))
         #expect(profile.binding(for: .options) == .tap(KeyStroke(key: .v, modifiers: .command)))
     }
@@ -125,7 +131,7 @@ struct ControllerProfileTests {
         #expect(decoded == ControllerProfile.starterTerminal)
     }
 
-    @Test("Command shortcuts are limited to the confirmed editing set and Triangle action")
+    @Test("Command shortcuts are limited to copy, paste, and Triangle")
     func elevatedBindingsAreExplicit() {
         let profile = ControllerProfile.starterTerminal
 
@@ -135,7 +141,7 @@ struct ControllerProfileTests {
                 profile.bindings
                     .filter { $0.value.strokes.contains { $0.modifiers.contains(.command) } }
                     .map(\.key)
-            ) == [.dpadLeft, .dpadRight, .options, .triangle]
+            ) == [.dpadRight, .options, .triangle]
         )
     }
 

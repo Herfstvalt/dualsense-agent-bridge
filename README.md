@@ -82,14 +82,14 @@ previous value back when it stops.
 | `l3` | tapSequence | `control+b, s` (tmux session list) |
 | `dpadUp` | tap | `arrowUp` |
 | `dpadDown` | tap | `arrowDown` |
-| `dpadLeft` | tap | `command+z` (resize/undo action) |
+| `dpadLeft` | tapSequence | `control+b, z` (tmux pane zoom toggle) |
 | `dpadRight` | tap | `command+c` (copy-last action) |
 | `options` | tap | `command+v` (paste action) |
 
 | Control | Action |
 | --- | --- |
 | right stick | move the pointer — deadzone 0.15, curve 2.0, 2340 px/s |
-| left stick | scroll — deadzone 0.2, curve 2.0, 850 px/s |
+| left stick | scroll — deadzone 0.2, curve 2.0, 765 px/s |
 | touchpad surface | disabled (unreliable on the target Mac) |
 | `r2` | hold the left mouse button |
 | `l2` | hold the right mouse button |

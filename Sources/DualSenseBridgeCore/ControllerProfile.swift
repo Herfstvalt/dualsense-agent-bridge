@@ -133,8 +133,9 @@ public struct ControllerProfile: Hashable, Sendable {
     ///
     /// `r3` holds the Wispr Flow toggle chord for the physical click. `cross`
     /// sends Enter, `circle` cancels with Escape, Square sends Backspace and
-    /// repeats while held, D-pad Up/Down walk shell history, and D-pad
-    /// Left/Right plus Options send the user's Command-Z/C/V shortcuts.
+    /// repeats while held, and D-pad Up/Down walk shell history. D-pad Left
+    /// sends the tmux prefix followed by `z`; D-pad Right and Options send the
+    /// user's Command-C/V shortcuts.
     ///
     /// The shoulders drive tmux through its prefix: `r1` and `l1` step between
     /// windows and `l3` opens the session list. Each is a sequence rather than a
@@ -162,7 +163,7 @@ public struct ControllerProfile: Hashable, Sendable {
             .l3: .tapSequence([tmuxPrefix, KeyStroke(key: .s)]),
             .dpadUp: .tap(KeyStroke(key: .arrowUp)),
             .dpadDown: .tap(KeyStroke(key: .arrowDown)),
-            .dpadLeft: .tap(KeyStroke(key: .z, modifiers: .command)),
+            .dpadLeft: .tapSequence([tmuxPrefix, KeyStroke(key: .z)]),
             .dpadRight: .tap(KeyStroke(key: .c, modifiers: .command)),
             .options: .tap(KeyStroke(key: .v, modifiers: .command)),
         ]

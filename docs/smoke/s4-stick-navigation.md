@@ -112,8 +112,10 @@ With focus in a long terminal buffer or a web page:
       sequence would produce.
 - [ ] Press D-pad Up and Down at a shell prompt. History moves one entry per
       press.
-- [ ] In a disposable target, press D-pad Left, D-pad Right, and Options. They
-      send Command-Z, Command-C, and Command-V respectively.
+- [ ] In tmux, press D-pad Left. It sends a fully released Ctrl-B prefix and
+      then `z`, toggling zoom for the active pane.
+- [ ] In a disposable target, press D-pad Right and Options. They send
+      Command-C and Command-V respectively.
 - [ ] Press the touchpad button. Control-backtick reaches the focused app.
 - [ ] Tap Square in a scratch prompt. It removes exactly one character as
       Backspace. Hold Square: after about 400 ms it repeats until release, then
@@ -183,7 +185,7 @@ With focus in a long terminal buffer or a web page:
 
 | Section | Status | Notes |
 | --- | --- | --- |
-| 0. Baseline without hardware | pass | `swift test` (282 tests, 23 suites) and `swift build -c release` pass; `controls` and `profile --starter` expose the repeat binding, confirmed Command-Z/C/V shortcuts, schema version 3, and the disabled touchpad surface. |
+| 0. Baseline without hardware | pass | `swift test` (282 tests, 23 suites) and `swift build -c release` pass; `controls` and `profile --starter` expose the repeat binding, Ctrl-B then Z tmux zoom, Command-C/V shortcuts, schema version 3, and the disabled touchpad surface. |
 | 1. Stick/touchpad recognition | pending | Needs the paired DualSense in a GUI session; surface motion is intentionally disabled while touchpad click remains mapped. |
 | 2. Pointer direction and feel | pending | Subjective; the shipped defaults are a starting point, not a verdict. |
 | 3. Scroll direction and feel | pending | Horizontal wheel polarity in particular needs a real check; `scroll.invertX` exists for exactly that. |
@@ -202,7 +204,7 @@ Fill this in during the hardware pass so the numbers survive the session.
 | `pointer.speed` | 2340 | | |
 | `scroll.deadzone` | 0.2 | | |
 | `scroll.responseExponent` | 2.0 | | |
-| `scroll.speed` | 850 | | |
+| `scroll.speed` | 765 | | |
 | `tickInterval` | 0.008 | | |
 
 Sections 1 through 6 are the human-in-the-loop part of this slice and are

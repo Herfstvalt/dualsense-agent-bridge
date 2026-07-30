@@ -136,7 +136,7 @@ even if permission is revoked mid-hold.
 
 | Section | Status | Notes |
 | --- | --- | --- |
-| 0. Baseline without hardware | pass | `swift test` (282 tests, 23 suites) and `swift build -c release` pass; the starter profile exports R3 as `hold control+s`, Square as `repeat delete`, and the confirmed Command-Z/C/V shortcuts. |
+| 0. Baseline without hardware | pass | `swift test` (282 tests, 23 suites) and `swift build -c release` pass; the starter profile exports R3 as `hold control+s`, Square as `repeat delete`, D-pad Left as Ctrl-B then Z, and the confirmed Command-C/V shortcuts. |
 | 1. Permission boundary | pending | Needs a machine where Accessibility can be toggled for the host terminal. |
 | 2. Controller recognition | partial | A plain SSH launch discovered the controller but received no HID events. Re-running in the logged-in GUI session connected successfully and logged the bound buttons, including both physical edges of R3. The intentionally unbound mic button still needs a no-binding check. |
 | 3. Wispr Flow press-to-talk | pending | Wispr Flow is installed and running on the hardware-test Mac; real shortcut activation and dictation remain unverified. |

@@ -74,7 +74,7 @@ struct ControllerBridgeTests {
         #expect(bridge.heldKeys.isEmpty)
     }
 
-    @Test("D-pad Left, D-pad Right, and Options send the confirmed Command shortcuts")
+    @Test("D-pad Left toggles tmux pane zoom before the editing shortcuts")
     func editingShortcutsEndToEnd() {
         var input = FakeControllerInput()
         let (bridge, sink) = makeBridge()
@@ -85,7 +85,8 @@ struct ControllerBridgeTests {
 
         #expect(
             sink.emissions == [
-                .down(.command), .down(.z), .up(.z), .up(.command),
+                .down(.control), .down(.b), .up(.b), .up(.control),
+                .down(.z), .up(.z),
                 .down(.command), .down(.c), .up(.c), .up(.command),
                 .down(.command), .down(.v), .up(.v), .up(.command),
             ]

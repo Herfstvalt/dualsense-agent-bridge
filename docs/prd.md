@@ -106,9 +106,9 @@ then adds a documented live hardware smoke test on the user's Mac.
   Accessibility Shortcuts (`Option-Command-F5`) as the supported route to the
   on-screen keyboard. Use R1/L1/L3 for fully released tmux prefix sequences
   (`Ctrl-B`, then `n`/`p`/`s`) and D-pad Up/Down for shell history. A literal
-  session kill is never bound to a normal button. Use D-pad Left→Command-Z,
-  D-pad Right→Command-C, and Options→Command-V for the user's confirmed
-  app-specific resize/undo, copy-last, and paste actions.
+  session kill is never bound to a normal button. Use D-pad Left→Ctrl-B then Z
+  to toggle tmux pane zoom, D-pad Right→Command-C for copy-last, and
+  Options→Command-V for paste.
 - Reserve R2 for left-button hold/drag and L2 for right-button hold/drag. Treat
   touchpad surface motion disabled by default because it was unstable on the
   target Mac; keep the physical touchpad click as its independent key binding.
